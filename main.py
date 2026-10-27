@@ -3,7 +3,6 @@ from discord.ext import commands, tasks
 from datetime import datetime, timezone
 from collections import defaultdict
 from dotenv import load_dotenv
-# WEB SERVER PARA RENDER
 from flask import Flask
 from threading import Thread
 
@@ -12,7 +11,7 @@ load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN") or os.getenv("TOKEN") or os.getenv("DISCORD_TOKEN")
 MY_ID = 1310357536087740450
 
-# --- WEB SERVER PARA RENDER (NO BORRAR) ---
+# --- WEB SERVER PARA RENDER (NO BORRAR, ESTO ARREGLA EL NO OPEN PORTS) ---
 app = Flask(__name__)
 @app.route('/')
 def home():
@@ -23,7 +22,7 @@ def run_web():
     app.run(host='0.0.0.0', port=port)
 
 Thread(target=run_web, daemon=True).start()
-# ------------------------------------------
+# ----------------------------------------------------------------------
 
 OWNER_FILE="owners.json"
 WHITELIST_PINGS_FILE="whitelist_pings.json"
@@ -1066,6 +1065,7 @@ async def nick(ctx, user_id: str = None, *, new_nick: str = None):
         await ctx.send(embed=embed_chido(f"( {uid} ) nick set as {new_nick}"))
     except Exception as ex: await ctx.send(embed=embed_chido(f"error {ex}"))
 
+# --- COMANDO HELP ARREGLADO (ESTE ERA EL QUE TE DABA ERROR) ---
 @bot.command(name="help", aliases=["h", "comandos", "ayuda"])
 async def help_cmd(ctx):
     if not has_perm(ctx): return
