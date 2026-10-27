@@ -3,14 +3,23 @@ from discord.ext import commands
 from datetime import datetime, timezone
 from collections import defaultdict
 from dotenv import load_dotenv
+from flask import Flask
+from threading import Thread
 load_dotenv()
 
 TOKEN = os.getenv("DISCORD_BOT_TOKEN") or os.getenv("TOKEN")
-MY_ID = 1310357536087740450  # tu ID dueño principal
+MY_ID = 1310357536087740450
 
-intents = discord.Intents.all()
-intents.message_content = True
-bot = commands.Bot(command_prefix="_", intents=intents, help_command=None)
+# --- WEB SERVER PARA RENDER ---
+app = Flask(__name__)
+@app.route('/')
+def home():
+    return "ANTINUKE ON - BOT VERGA LIVE"
+def run_web():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
+Thread(target=run_web, daemon=True).start()
+# -----------------------------
 
 OWNER_FILE = "owners.json"
 if os.path.exists(OWNER_FILE):
@@ -33,7 +42,6 @@ def is_safe(guild, uid):
     if uid == guild.owner_id: return True
     return False
 
-# antispam
 cache = defaultdict(list)
 def is_spam(uid):
     now = time.time()
@@ -50,11 +58,14 @@ async def punish(guild, uid, reason):
     except Exception as e:
         print(f"No pude banear {uid}: {e}")
 
-# --- EVENTOS ANTINUKE ---
+@bot_event = discord.Intents.all()
+intents = discord.Intents.all()
+intents.message_content = True
+bot = commands.Bot(command_prefix="_", intents=intents, help_command=None)
 
 @bot.event
 async def on_ready():
-    print(f"ANTINUKE ON - {bot.user}")
+    print(f"ANTINUKE ON - {bot.user} - WEB ON PORT {os.environ.get('PORT', 10000)}")
 
 @bot.event
 async def on_member_ban(guild, user):
@@ -134,15 +145,13 @@ async def on_member_join(member):
             if (datetime.now(timezone.utc)-e.created_at).total_seconds() > 15: continue
             if e.target.id != member.id: continue
             if is_safe(member.guild, e.user.id): return
-            # banea el bot y al que lo metió
             try: await member.ban(reason="Antibot")
-            except: 
+            except:
                 try: await member.kick(reason="Antibot")
                 except: pass
             await punish(member.guild, e.user.id, f"Bot Add {member.id}")
     except: pass
 
-# --- COMANDOS SOLO OWNER ---
 @bot.command()
 async def owner_add(ctx, uid: int):
     if ctx.author.id != MY_ID: return
@@ -151,19 +160,9 @@ async def owner_add(ctx, uid: int):
     await ctx.send(f"{uid} ahora es owner")
 
 @bot.command()
-async def owner_remove(ctx, uid: int):
-    if ctx.author.id != MY_ID: return
-    if str(ctx.guild.id) in OWNER and uid in OWNER[str(ctx.guild.id)]:
-        OWNER[str(ctx.guild.id)].remove(uid)
-        save_owners()
-        await ctx.send(f"{uid} removido")
-    else:
-        await ctx.send("No estaba")
-
-@bot.command()
 async def owner_list(ctx):
     owners = OWNER.get(str(ctx.guild.id), set())
     txt = "\n".join([f"<@{x}> - {x}" for x in owners]) if owners else "Vacio"
-    await ctx.send(f"Owners:\n{txt}\nPrincipal: <@{MY_ID}>")
+    await ctx.send(f"Owners:\n{txt}")
 
 bot.run(TOKEN)
