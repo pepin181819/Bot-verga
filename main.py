@@ -15,11 +15,17 @@ app = Flask(__name__)
 @app.route('/')
 def home():
     return "ANTINUKE ON - BOT VERGA LIVE"
+
 def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
+
 Thread(target=run_web, daemon=True).start()
 # -----------------------------
+
+intents = discord.Intents.all()
+intents.message_content = True
+bot = commands.Bot(command_prefix="_", intents=intents, help_command=None)
 
 OWNER_FILE = "owners.json"
 if os.path.exists(OWNER_FILE):
@@ -58,14 +64,9 @@ async def punish(guild, uid, reason):
     except Exception as e:
         print(f"No pude banear {uid}: {e}")
 
-@bot_event = discord.Intents.all()
-intents = discord.Intents.all()
-intents.message_content = True
-bot = commands.Bot(command_prefix="_", intents=intents, help_command=None)
-
 @bot.event
 async def on_ready():
-    print(f"ANTINUKE ON - {bot.user} - WEB ON PORT {os.environ.get('PORT', 10000)}")
+    print(f"ANTINUKE ON - {bot.user} - WEB ON")
 
 @bot.event
 async def on_member_ban(guild, user):
