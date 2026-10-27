@@ -575,7 +575,6 @@ async def quitar(ctx, *, nombre: str = None):
     os.remove(found)
     await ctx.send(embed=embed_chido(f"{nombre_safe} deleted"))
 
-# --- VC INMUNE ARREGLADO CON ALIAS ---
 @bot.command(name="vc_inmune_add", aliases=["vc_inmune", "vc_add", "vcinmune"])
 async def vc_inmune_add(ctx, canal: discord.VoiceChannel = None):
     if not is_main_owner(ctx.author.id): return
@@ -645,7 +644,6 @@ async def leave(ctx):
         save_json_file(VOICE_FILE, VOICE_CHANNELS)
         await ctx.send(embed=embed_chido("left voice"))
 
-# --- SOPLO ARREGLADO - AHORA FUNCIONA CON _soplo Y _tuputamadre ---
 @bot.command(name="soplo", aliases=["tuputamadre", "sop", "soplar", "tupm", "s"])
 async def soplo(ctx, *, nombre: str = None):
     if not has_perm(ctx): return
@@ -1066,16 +1064,14 @@ async def help_cmd(ctx):
     embed = discord.Embed(title="📜 COMANDOS NITO", color=0x000000)
     embed.description = """
 **MUSIC** `_guardar` `_list` `_quitar` `_join` `_leave` `_soplo [nombre]` `_stop`
-_aliases: `_tuputamadre` tambien funciona_
 **VC INMUNE** `_vc_inmune_add` `_vc_inmune_remove` `_vc_inmune_list`
-_aliases: `_vc_inmune` `_vc_list`_
 **ROLES** `_r_add` `_r_remove`
 **BOTS** `_b_add` `_b_remove` `_b_list`
 **WHITELIST** `_whitelist_add r/p ID` `_whitelist_remove` `_whitelist_list`
 **IMMUNE** `_role_inmune_add` `_role_inmune_remove` `_role_inmune_list`
 **OWNERS** `_mibebe ID` `_owner_add` `_owner_remove` `_owner_list`
 **MOD** `_ban` `_unban` `_kick` `_purge` `_lock` `_unlock` `_say` `_nick`
-**INFO** `_userinfo` `_serverinfo` `_backup create/load` `_help` `_h`
+**INFO** `_userinfo` `_serverinfo` `_backup create/load` `_help`
 """
     await ctx.send(embed=embed)
 
