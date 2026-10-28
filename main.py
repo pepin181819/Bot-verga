@@ -13,10 +13,17 @@ MY_ID = 1310357536087740450
 app = Flask(__name__)
 @app.route('/')
 def home(): return "ANTINUKE ON - BOT VERGA LIVE"
+
 def run_web():
     port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
-Thread(target=run_web, daemon=True).start()
+    print(f"[WEB] Bindeando puerto {port}")
+    app.run(host='0.0.0.0', port=port, threaded=True, use_reloader=False)
+
+t = Thread(target=run_web)
+t.daemon = True
+t.start()
+time.sleep(3)
+print("[WEB] Flask lanzado OK")
 
 OWNER_FILE="owners.json"
 WHITELIST_PINGS_FILE="whitelist_pings.json"
@@ -1072,12 +1079,15 @@ async def on_command_error(ctx, error):
 
 if __name__ == "__main__":
     if not TOKEN:
-        print("ERROR: NO HAY TOKEN")
+        print("ERROR: NO HAY TOKEN - revisa DISCORD_BOT_TOKEN en Render")
         while True: time.sleep(10)
     else:
-        try:
-            bot.run(TOKEN)
-        except Exception as e:
-            print(f"FATAL: {e}")
-            traceback.print_exc()
-            time.sleep(5)
+        print(f"[BOT] Token OK - {len(TOKEN)} chars - Iniciando...")
+        while True:
+            try:
+                bot.run(TOKEN)
+            except Exception as e:
+                print(f"[BOT CRASH] {e}")
+                traceback.print_exc()
+                print("[BOT] Reintentando en 5s...")
+                time.sleep(5)
