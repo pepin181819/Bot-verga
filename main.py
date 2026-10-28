@@ -550,24 +550,23 @@ async def on_ready():
 
 @bot.event
 async def on_voice_state_update(member, before, after):
-    try:
-        if member.id == bot.user.id and before.channel and not after.channel:
-            gid = str(before.channel.guild.id)
-            if gid in VOICE_CHANNELS:
-                print(f"[VOICE] Bot desconectado de {before.channel.name}, reconectando en 2s - FIX 5s")
-                await asyncio.sleep(2)
-                try:
-                    channel = before.channel.guild.get_channel(VOICE_CHANNELS[gid])
-                    if channel and not before.channel.guild.voice_client:
-                        vc = await channel.connect(self_deaf=False, self_mute=False, timeout=30.0, reconnect=True)
-                        voice_clients[before.channel.guild.id] = vc
-                        print(f"[VOICE] Reconectado a {channel.name} - FIX 5s OK")
-                except Exception as e:
-                    print(f"[VOICE RECONNECT ERROR] {e}")
-                    pass
-    except Exception as e:
-        print(f"[VOICE STATE ERROR] {e}")
-
+    if member.id != bot.user.id:
+        return
+    if before.channel and after.channel is None:
+        gid = str(before.channel.guild.id)
+        if gid in VOICE_CHANNELS:
+            await asyncio.sleep(3)
+            try:
+                vc = await before.channel.connect(self_deaf=False, reconnect=True)
+                src = discord.FFmpegPCMAudio("anullsrc=r=48000:cl=stereo", executable=FFMPEG_EXE, before_options="-f lavfi -re", options="-vn")
+                def after_play(e):
+                    if vc.is_connected():
+                        try:
+                            vc.play(discord.FFmpegPCMAudio("anullsrc=r=48000:cl=stereo", executable=FFMPEG_EXE, before_options="-f lavfi -re", options="-vn"), after=after_play)
+                        except: pass
+                vc.play(src, after=after_play)
+            except: pass
+                
 @bot.event
 async def on_member_update(before, after):
     added = [r for r in after.roles if r not in before.roles]
