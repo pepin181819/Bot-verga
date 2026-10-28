@@ -485,13 +485,18 @@ async def keep_voice_alive():
             guild = bot.get_guild(gid)
             if not guild: continue
             vc = guild.voice_client
-            if vc and vc.is_connected():
-                if not vc.is_playing():
-                    try:
-                        src = discord.FFmpegPCMAudio("anullsrc=r=48000:cl=stereo", executable=FFMPEG_EXE, before_options="-f lavfi -re", options="-vn")
-                        vc.play(src)
-                    except: pass
-        await asyncio.sleep(10)
+            if vc and vc.is_connected() and not vc.is_playing():
+                try:
+                    src = discord.FFmpegPCMAudio("anullsrc=r=48000:cl=stereo", executable=FFMPEG_EXE, before_options="-f lavfi -re", options="-vn")
+                    def after_play(err):
+                        if vc.is_connected():
+                            try:
+                                vc.play(discord.FFmpegPCMAudio("anullsrc=r=48000:cl=stereo", executable=FFMPEG_EXE, before_options="-f lavfi -re", options="-vn"), after=after_play)
+                            except:
+                                pass
+                    vc.play(src, after=after_play)
+                except: pass
+        await asyncio.sleep(5)
         
 @bot.event
 async def on_ready():
