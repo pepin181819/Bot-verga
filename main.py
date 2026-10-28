@@ -31,6 +31,15 @@ from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 from threading import Thread
 import logging
+app = Flask('')
+@app.route('/')
+def home():
+    return "Bot vivo 24/7"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+Thread(target=run).start()
 
 # --- RENDER FIX FFMPEG ---
 try:
