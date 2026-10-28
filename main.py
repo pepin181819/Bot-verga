@@ -506,7 +506,7 @@ async def keep_voice_alive():
                     channel = guild.get_channel(ch_id) or await bot.fetch_channel(ch_id)
                     if isinstance(channel, discord.VoiceChannel):
                         print(f"[KEEPALIVE] Reconectando a {channel.name} en {guild.name} - FIX 5s")
-                        new_vc = await channel.connect(self_deaf=True, self_mute=False, timeout=30.0, reconnect=True)
+                        new_vc = await channel.connect(self_deaf=False, self_mute=False, timeout=30.0, reconnect=True)
                         voice_clients[guild.id] = new_vc
                         try:
                             await channel.set_permissions(guild.me.top_role, connect=True, speak=True, view_channel=True)
