@@ -7,7 +7,7 @@ except ModuleNotFoundError:
         sys.modules['audioop'] = audioop
         print("[FIX] audioop-lts cargado para Python 3.14")
     except:
-        print("[WARN] audioop no encontrado - instala audioop-lts")
+        print("[WARN] audioop no encontrado")
 
 import os, json, discord, asyncio, time, shutil, traceback
 from discord.ext import commands, tasks
@@ -270,9 +270,9 @@ async def on_ready():
                 channel = guild.get_channel(ch_id) or await bot.fetch_channel(ch_id)
                 if isinstance(channel, discord.VoiceChannel):
                     if guild.voice_client:
-                        try: await guild.voice_client.disconnect()
+                        try: await guild.voice_client.disconnect(force=True)
                         except: pass
-                    vc = await channel.connect(self_deaf=False, self_mute=False)
+                    vc = await channel.connect(self_deaf=False, self_mute=False, timeout=20.0, reconnect=True)
                     voice_clients[guild.id] = vc
             except: pass
     try:
@@ -288,8 +288,8 @@ async def on_voice_state_update(member, before, after):
             await asyncio.sleep(3)
             try:
                 channel = before.channel.guild.get_channel(VOICE_CHANNELS[gid])
-                if channel:
-                    vc = await channel.connect(self_deaf=False, self_mute=False)
+                if channel and not before.channel.guild.voice_client:
+                    vc = await channel.connect(self_deaf=False, self_mute=False, timeout=20.0, reconnect=True)
                     voice_clients[before.channel.guild.id] = vc
             except: pass
 
@@ -596,6 +596,7 @@ async def vc_inmune_list(ctx):
     e = discord.Embed(title="VCs Inmunes", description="\n".join(lines), color=0x0b0b0b)
     await ctx.send(embed=e)
 
+# --- FIXX JOIN / LEAVE PARA Already connected ---
 @bot.command(name="join")
 async def join(ctx):
     if not has_perm(ctx): return
@@ -604,26 +605,62 @@ async def join(ctx):
     ch = ctx.author.voice.channel
     try:
         if ctx.guild.voice_client:
-            try: await ctx.guild.voice_client.disconnect()
+            try: 
+                await ctx.guild.voice_client.disconnect(force=True)
+                await asyncio.sleep(1)
             except: pass
-        vc = await ch.connect(self_deaf=False, self_mute=False)
-        voice_clients[ctx.guild.id] = vc
+        
+        VOICE_CHANNELS.pop(str(ctx.guild.id), None)
+        voice_clients.pop(ctx.guild.id, None)
+        save_json_file(VOICE_FILE, VOICE_CHANNELS)
+        
+        vc = await ch.connect(self_deaf=False, self_mute=False, timeout=20.0, reconnect=True)
         VOICE_CHANNELS[str(ctx.guild.id)] = ch.id
         save_json_file(VOICE_FILE, VOICE_CHANNELS)
-        await ctx.send(embed=embed_chido(f"voice on"))
-    except Exception as ex: await ctx.send(embed=embed_chido(f"error {ex}"))
+        voice_clients[ctx.guild.id] = vc
+        await ctx.send(embed=embed_chido(f"voice on - {ch.name}"))
+        print(f"[VC] Conectado a {ch.name}")
+    except discord.errors.ClientException as e:
+        if "Already connected" in str(e):
+            try:
+                if ctx.guild.voice_client:
+                    await ctx.guild.voice_client.disconnect(force=True)
+                VOICE_CHANNELS.pop(str(ctx.guild.id), None)
+                voice_clients.pop(ctx.guild.id, None)
+                save_json_file(VOICE_FILE, VOICE_CHANNELS)
+                await asyncio.sleep(1.5)
+                vc = await ch.connect(self_deaf=False, self_mute=False, timeout=20.0, reconnect=True)
+                VOICE_CHANNELS[str(ctx.guild.id)] = ch.id
+                save_json_file(VOICE_FILE, VOICE_CHANNELS)
+                voice_clients[ctx.guild.id] = vc
+                await ctx.send(embed=embed_chido(f"voice on - reconectado a {ch.name}"))
+            except Exception as ex:
+                await ctx.send(embed=embed_chido(f"error reconectando {ex}"))
+                traceback.print_exc()
+        else:
+            await ctx.send(embed=embed_chido(f"error {e}"))
+    except Exception as ex:
+        await ctx.send(embed=embed_chido(f"error join {ex}"))
+        traceback.print_exc()
 
 @bot.command(name="leave")
 async def leave(ctx):
     if not has_perm(ctx): return
-    vc = ctx.guild.voice_client or voice_clients.get(ctx.guild.id)
-    if vc:
-        try: await vc.disconnect()
-        except: pass
+    try:
+        vc = ctx.guild.voice_client
+        if vc:
+            await vc.disconnect(force=True)
+            print(f"[VC] Desconectado manual")
         voice_clients.pop(ctx.guild.id, None)
         VOICE_CHANNELS.pop(str(ctx.guild.id), None)
         save_json_file(VOICE_FILE, VOICE_CHANNELS)
-        await ctx.send(embed=embed_chido("left voice"))
+        await ctx.send(embed=embed_chido("left voice - limpio"))
+    except Exception as ex:
+        VOICE_CHANNELS.pop(str(ctx.guild.id), None)
+        voice_clients.pop(ctx.guild.id, None)
+        save_json_file(VOICE_FILE, VOICE_CHANNELS)
+        await ctx.send(embed=embed_chido(f"left voice forzado - limpio"))
+        print(f"[VC ERROR LEAVE] {ex}")
 
 @bot.command(name="tuputamadre")
 async def tuputamadre(ctx, *, nombre: str = None):
@@ -650,7 +687,7 @@ async def tuputamadre(ctx, *, nombre: str = None):
         vc.play(source)
         await ctx.send(embed=embed_chido(f"{os.path.basename(file_path)} playing"))
     except Exception as e:
-        await ctx.send(embed=embed_chido(f"audio error {e}"))
+        await ctx.send(embed=embed_chido(f"audio error {e} - instala ffmpeg en Render"))
 
 @bot.command(name="stop")
 async def stop(ctx):
@@ -1087,7 +1124,7 @@ if __name__ == "__main__":
     if not TOKEN:
         print("ERROR: NO HAY TOKEN")
         while True: time.sleep(10)
-    print(f"[BOT] Token OK - iniciando Web Service con fix audioop + session")
+    print(f"[BOT] Token OK - iniciando Web Service con fix completo")
     while True:
         try:
             asyncio.set_event_loop(asyncio.new_event_loop())
