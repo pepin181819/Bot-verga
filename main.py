@@ -10,20 +10,19 @@ load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN") or os.getenv("TOKEN") or os.getenv("DISCORD_TOKEN")
 MY_ID = 1310357536087740450
 
+# --- FIX WEB SERVICE PARA QUE NO SALGA SESSION IS CLOSED ---
 app = Flask(__name__)
 @app.route('/')
 def home(): return "ANTINUKE ON - BOT VERGA LIVE"
-
-def run_web():
+def run_flask():
     port = int(os.environ.get("PORT", 10000))
     print(f"[WEB] Bindeando puerto {port}")
     app.run(host='0.0.0.0', port=port, threaded=True, use_reloader=False)
 
-t = Thread(target=run_web)
-t.daemon = True
-t.start()
+flask_thread = Thread(target=run_flask, daemon=True)
+flask_thread.start()
 time.sleep(3)
-print("[WEB] Flask lanzado OK")
+print("[WEB] Flask OK")
 
 OWNER_FILE="owners.json"
 WHITELIST_PINGS_FILE="whitelist_pings.json"
@@ -137,12 +136,9 @@ def is_owner(guild_id, uid):
 
 def has_perm(ctx):
     try:
-        if ctx.author.id == MY_ID:
-            return True
-        if not ctx.guild:
-            return False
-        if ctx.author.id == ctx.guild.owner_id:
-            return True
+        if ctx.author.id == MY_ID: return True
+        if not ctx.guild: return False
+        if ctx.author.id == ctx.guild.owner_id: return True
         return is_owner(ctx.guild.id, ctx.author.id)
     except:
         return ctx.author.id == MY_ID
@@ -1077,17 +1073,28 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound): return
     traceback.print_exception(type(error), error, error.__traceback__)
 
+# --- FIX PARA SESSION IS CLOSED EN WEB SERVICE ---
 if __name__ == "__main__":
     if not TOKEN:
-        print("ERROR: NO HAY TOKEN - revisa DISCORD_BOT_TOKEN en Render")
+        print("ERROR: NO HAY TOKEN")
         while True: time.sleep(10)
-    else:
-        print(f"[BOT] Token OK - {len(TOKEN)} chars - Iniciando...")
-        while True:
-            try:
-                bot.run(TOKEN)
-            except Exception as e:
-                print(f"[BOT CRASH] {e}")
-                traceback.print_exc()
-                print("[BOT] Reintentando en 5s...")
+    
+    print(f"[BOT] Token OK - iniciando en Web Service")
+    while True:
+        try:
+            asyncio.set_event_loop(asyncio.new_event_loop())
+            bot.run(TOKEN)
+        except RuntimeError as e:
+            if "Session is closed" in str(e):
+                print(f"[FIX] Session is closed - reintentando en 5s")
                 time.sleep(5)
+                continue
+            print(f"[CRASH] {e}")
+            traceback.print_exc()
+            time.sleep(5)
+            continue
+        except Exception as e:
+            print(f"[CRASH] {e}")
+            traceback.print_exc()
+            time.sleep(5)
+            continue
