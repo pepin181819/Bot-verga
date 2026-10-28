@@ -1,4 +1,4 @@
-discord.py
+discord.py==2.3.2
 python-dotenv
-PyNaCl
-flask
+Flask
+aiohttp==3.9.5
