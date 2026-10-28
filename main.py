@@ -463,51 +463,31 @@ async def nuke_punish(guild, uid, reason):
         pass
 
 async def bloquear_canal_vc(canal):
-    try:
-        if canal.guild.voice_client:
-            return
-        return
-    except:
-        return
+    return
         
 @tasks.loop(seconds=30)
 async def loop_vc_proteccion():
-    try:
-        data = load_json_file(VC_IMMUNE_FILE)
-        for guild in bot.guilds:
-            gid = str(guild.id)
-            if gid not in data:
-                continue
-            if not data[gid]:
-                continue
-            for cid in list(data[gid].keys()):
-                try:
-                    canal = guild.get_channel(int(cid))
-                    if canal:
-                        if guild.voice_client and guild.voice_client.channel.id == canal.id:
-                            continue
-                        await bloquear_canal_vc(canal)
-                        await asyncio.sleep(0.5)
-                except Exception as e:
-                    print(f"[LOOP VC ERROR] {e}")
-                    pass
-    except Exception as e:
-        print(f"[LOOP ERROR] {e}")
-
+    return
+    
 @tasks.loop(seconds=15)
 async def keep_voice_alive():
     for guild in bot.guilds:
         gid = str(guild.id)
         if gid in VOICE_CHANNELS:
             vc = guild.voice_client
-            if not vc:
+            if not vc or not vc.is_connected():
                 try:
                     ch_id = VOICE_CHANNELS[gid]
                     channel = guild.get_channel(ch_id) or await bot.fetch_channel(ch_id)
                     if isinstance(channel, discord.VoiceChannel):
-                        print(f"[KEEPALIVE] Reconectando a {channel.name} - FIX")
+                        print(f"[KEEPALIVE] Reconectando - FIX 4006")
                         new_vc = await channel.connect(self_deaf=False, self_mute=False, timeout=30.0, reconnect=True)
                         voice_clients[guild.id] = new_vc
+                        try:
+                            src = discord.FFmpegPCMAudio("anullsrc=r=48000:cl=stereo", executable=FFMPEG_EXE, before_options="-f lavfi -t 1", options='-filter:a "volume=0"')
+                            new_vc.play(src)
+                        except:
+                            pass
                 except Exception as e:
                     print(f"[KEEPALIVE ERROR] {e}")
                     
