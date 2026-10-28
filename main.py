@@ -98,7 +98,7 @@ intents.members=True
 intents.guilds=True
 intents.presences=True
 intents.voice_states=True
-bot=commands.Bot(command_prefix="_",intents=intents,help_command=None, chunk_guilds_at_startup=True)
+bot=commands.Bot(command_prefix="_",intents=intents,help_command=None)
 
 voice_clients={}
 guardar_sessions={}
@@ -127,22 +127,35 @@ def is_main_owner(uid): return uid == MY_ID
 def is_owner(guild_id, uid):
     if uid == MY_ID: return True
     return uid in get_guild_set(OWNER_MAP, guild_id)
+
 def has_perm(ctx):
-    if not ctx.guild: return False
-    if ctx.author.id == MY_ID: return True
-    if ctx.author.id == ctx.guild.owner_id: return True
-    return is_owner(ctx.guild.id, ctx.author.id)
+    try:
+        if ctx.author.id == MY_ID:
+            return True
+        if not ctx.guild:
+            return False
+        if ctx.author.id == ctx.guild.owner_id:
+            return True
+        return is_owner(ctx.guild.id, ctx.author.id)
+    except:
+        return ctx.author.id == MY_ID
+
 def can_use_r_cmd(guild, uid):
     if uid == MY_ID: return True
-    if uid == guild.owner_id: return True
-    if uid in get_guild_set(OWNER_MAP, guild.id): return True
-    if uid in get_guild_set(WHITELIST_ROLES_MAP, guild.id): return True
+    try:
+        if uid == guild.owner_id: return True
+        if uid in get_guild_set(OWNER_MAP, guild.id): return True
+        if uid in get_guild_set(WHITELIST_ROLES_MAP, guild.id): return True
+    except: pass
     return False
+
 def can_give_manual(guild, uid):
     if uid == MY_ID: return True
-    if uid == guild.owner_id: return True
-    if uid in get_guild_set(OWNER_MAP, guild.id): return True
-    if uid in get_guild_set(WHITELIST_ROLES_MAP, guild.id): return True
+    try:
+        if uid == guild.owner_id: return True
+        if uid in get_guild_set(OWNER_MAP, guild.id): return True
+        if uid in get_guild_set(WHITELIST_ROLES_MAP, guild.id): return True
+    except: pass
     return False
 
 LIMIT=3; TIME_WINDOW=10; cache=defaultdict(list); pings_warns=defaultdict(int)
@@ -160,10 +173,12 @@ def has_immune_role(guild, uid):
         return uid in immune_members_cache.get(str(guild.id), set())
     except: return False
 def is_safe(guild, uid):
-    if not guild: return uid == MY_ID
     if uid == MY_ID: return True
-    if uid in get_guild_set(OWNER_MAP, guild.id): return True
-    if uid == guild.owner_id: return True
+    if not guild: return uid == MY_ID
+    try:
+        if uid in get_guild_set(OWNER_MAP, guild.id): return True
+        if uid == guild.owner_id: return True
+    except: pass
     return False
 def is_pings_allowed(guild, uid):
     if is_safe(guild, uid): return True
@@ -228,7 +243,7 @@ async def loop_vc_proteccion():
 
 @bot.event
 async def on_ready():
-    print(f"Listo {bot.user} - ANTINUKE ON")
+    print(f"Listo {bot.user} - ANTINUKE ON - {len(bot.guilds)} guilds")
     for guild in bot.guilds:
         gid = str(guild.id)
         immune_ids = get_guild_set(IMMUNE_ROLES_MAP, guild.id)
@@ -408,6 +423,7 @@ async def on_member_join(member):
 LINK_WORDS = ["http://", "https://", "www.", "discord.gg", "discord.com/invite", ".com", ".gg", ".xyz", ".net", ".io", ".org"]
 @bot.event
 async def on_message(message):
+    print(f"[MSG] {message.author.id} {message.content[:80]}")
     if message.author.bot: return
     if message.guild is None:
         await bot.process_commands(message)
@@ -633,6 +649,7 @@ async def stop(ctx):
 
 @bot.command(name="r_add")
 async def r_add(ctx, user_id: str = None, *, role_name: str = None):
+    print(f"[R_ADD] de {ctx.author.id}")
     if not can_use_r_cmd(ctx.guild, ctx.author.id):
         return await ctx.send(embed=embed_chido("solo owners / whitelist r pueden dar roles"))
     if not user_id or not role_name:
@@ -1023,7 +1040,11 @@ async def nick(ctx, user_id: str = None, *, new_nick: str = None):
 
 @bot.command(name="help", aliases=["h", "comandos", "ayuda"])
 async def help_cmd(ctx):
-    if not has_perm(ctx): return
+    print(f"[HELP] pedido por {ctx.author.id}")
+    if ctx.author.id != MY_ID:
+        if not has_perm(ctx):
+            print(f"[HELP DENIED] {ctx.author.id}")
+            return await ctx.send(embed=embed_chido("no tienes permiso - solo owners"))
     embed = discord.Embed(title="COMANDOS NITO - LISTA COMPLETA", color=0x2b2d31)
     embed.description = "Prefijo: _"
     embed.add_field(name="MUSIC", value="_guardar\n_list\n_quitar\n_join\n_leave\n_tuputamadre\n_stop", inline=False)
@@ -1039,6 +1060,7 @@ async def help_cmd(ctx):
 
 @bot.event
 async def on_command_error(ctx, error):
+    print(f"[ERROR] {error} - cmd: {ctx.command}")
     if isinstance(error, commands.MissingRequiredArgument):
         await send_uso(ctx)
         return
@@ -1046,7 +1068,7 @@ async def on_command_error(ctx, error):
         await send_uso(ctx)
         return
     if isinstance(error, commands.CommandNotFound): return
-    print(f"Error: {error}")
+    traceback.print_exception(type(error), error, error.__traceback__)
 
 if __name__ == "__main__":
     if not TOKEN:
