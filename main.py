@@ -1030,51 +1030,34 @@ async def join(ctx):
     try:
         if ctx.guild.voice_client:
             if ctx.guild.voice_client.channel.id == ch.id:
-                print(f"[JOIN] Ya estoy en {ch.name}, no hago nada")
                 VOICE_CHANNELS[str(ctx.guild.id)] = ch.id
                 save_json_file(VOICE_FILE, VOICE_CHANNELS)
+                print(f"[JOIN] Ya en {ch.name}")
                 return
-            else:
+            try:
+                await ctx.guild.voice_client.move_to(ch)
+                VOICE_CHANNELS[str(ctx.guild.id)] = ch.id
+                save_json_file(VOICE_FILE, VOICE_CHANNELS)
+                voice_clients[ctx.guild.id] = ctx.guild.voice_client
+                print(f"[JOIN] Movido a {ch.name}")
+                return
+            except:
                 try:
-                    await ctx.guild.voice_client.move_to(ch)
-                    VOICE_CHANNELS[str(ctx.guild.id)] = ch.id
-                    save_json_file(VOICE_FILE, VOICE_CHANNELS)
-                    voice_clients[ctx.guild.id] = ctx.guild.voice_client
-                    print(f"[JOIN] Movido a {ch.name}")
-                    return
-                except Exception as e:
-                    print(f"[JOIN MOVE ERROR] {e}")
-                    try:
-                        await ctx.guild.voice_client.disconnect(force=True)
-                    except:
-                        pass
-                    await asyncio.sleep(0.5)
-        VOICE_CHANNELS.pop(str(ctx.guild.id), None)
-        voice_clients.pop(ctx.guild.id, None)
-        save_json_file(VOICE_FILE, VOICE_CHANNELS)
-        print(f"[JOIN] Conectando a {ch.name} con self_deaf=True - FIX 5s")
-        vc = await ch.connect(self_deaf=True, self_mute=False, timeout=30.0, reconnect=True)
+                    await ctx.guild.voice_client.disconnect(force=True)
+                except:
+                    pass
+                await asyncio.sleep(0.8)
+        
+        print(f"[JOIN] Conectando a {ch.name} - FIX 5s")
+        vc = await ch.connect(self_deaf=False, self_mute=False, timeout=30.0, reconnect=True)
         VOICE_CHANNELS[str(ctx.guild.id)] = ch.id
         save_json_file(VOICE_FILE, VOICE_CHANNELS)
         voice_clients[ctx.guild.id] = vc
-        try:
-            await ch.set_permissions(ctx.guild.me.top_role, connect=True, speak=True, view_channel=True, move_members=True)
-            await ch.set_permissions(ctx.guild.me, connect=True, speak=True, view_channel=True)
-        except Exception as e:
-            print(f"[JOIN PERM ERROR] {e}")
         print(f"[JOIN] Conectado a {ch.name} - FIX 5s OK")
-    except discord.errors.ClientException as e:
-        if "Already connected" in str(e):
-            try:
-                VOICE_CHANNELS[str(ctx.guild.id)] = ch.id
-                save_json_file(VOICE_FILE, VOICE_CHANNELS)
-            except: pass
-        else:
-            print(f"[JOIN CLIENT ERROR] {e}")
     except Exception as ex:
-        print(f"[JOIN ERROR FINAL] {ex}")
+        print(f"[JOIN ERROR] {ex}")
         traceback.print_exc()
-
+        
 @bot.command(name="leave")
 async def leave(ctx):
     if not has_perm(ctx):
