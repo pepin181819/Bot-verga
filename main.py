@@ -967,30 +967,26 @@ async def vc_inmune_list(ctx):
 
 @bot.command(name="join")
 async def join(ctx):
-    if not has_perm(ctx):
+    if ctx.author.voice is None:
+        await ctx.send("No estás en un canal de voz we")
         return
-    if not ctx.author.voice or not ctx.author.voice.channel:
-        return await ctx.send(embed=embed_chido("you must be in voice - entra a un VC primero"))
-    ch = ctx.author.voice.channel
-    await ctx.send(embed=embed_chido(f"voice on - {ch.name}"))
+    channel = ctx.author.voice.channel
     try:
-        if ctx.guild.voice_client:
-            try:
-                await ctx.guild.voice_client.disconnect(force=True)
-            except:
-                pass
-            await asyncio.sleep(1)
-        vc = await ch.connect(self_deaf=False, self_mute=False, timeout=30.0, reconnect=True)
-        VOICE_CHANNELS[str(ctx.guild.id)] = ch.id
-        save_json_file(VOICE_FILE, VOICE_CHANNELS)
-        voice_clients[ctx.guild.id] = vc
+        if ctx.voice_client is not None:
+            await ctx.voice_client.move_to(channel)
+            vc = ctx.voice_client
+        else:
+            vc = await channel.connect(self_deaf=False, self_mute=False, timeout=30.0, reconnect=True)
+        VOICE_CHANNELS[ctx.guild.id] = channel.id
         try:
-                        source = discord.FFmpegPCMAudio("anullsrc=r=48000:cl=stereo", executable=FFMPEG_EXE, before_options="-f lavfi -re", options="-vn")
-            vc.play(source, after=lambda e: print(f"[VOICE AFTER] {e}") if e else None)
+            source = discord.FFmpegPCMAudio("anullsrc=r=48000:cl=stereo", executable=FFMPEG_EXE, before_options="-f lavfi -re", options="-vn")
+            vc.play(source)
         except:
             pass
-    except Exception as ex:
-        print(f"[JOIN ERROR] {ex}")
+        await ctx.send(f"Conectado a {channel.name}")
+    except Exception as e:
+        await ctx.send(f"Error: {e}")
+        print(f"[JOIN ERROR] {e}")
         
 @bot.command(name="leave")
 async def leave(ctx):
