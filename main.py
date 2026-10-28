@@ -1,3 +1,14 @@
+import sys
+try:
+    import audioop
+except ModuleNotFoundError:
+    try:
+        import audioop_lts as audioop
+        sys.modules['audioop'] = audioop
+        print("[FIX] audioop-lts cargado para Python 3.14")
+    except:
+        print("[WARN] audioop no encontrado - instala audioop-lts")
+
 import os, json, discord, asyncio, time, shutil, traceback
 from discord.ext import commands, tasks
 from datetime import datetime, timezone
@@ -10,7 +21,6 @@ load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN") or os.getenv("TOKEN") or os.getenv("DISCORD_TOKEN")
 MY_ID = 1310357536087740450
 
-# --- FIX WEB SERVICE PARA QUE NO SALGA SESSION IS CLOSED ---
 app = Flask(__name__)
 @app.route('/')
 def home(): return "ANTINUKE ON - BOT VERGA LIVE"
@@ -1073,13 +1083,11 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound): return
     traceback.print_exception(type(error), error, error.__traceback__)
 
-# --- FIX PARA SESSION IS CLOSED EN WEB SERVICE ---
 if __name__ == "__main__":
     if not TOKEN:
         print("ERROR: NO HAY TOKEN")
         while True: time.sleep(10)
-    
-    print(f"[BOT] Token OK - iniciando en Web Service")
+    print(f"[BOT] Token OK - iniciando Web Service con fix audioop + session")
     while True:
         try:
             asyncio.set_event_loop(asyncio.new_event_loop())
