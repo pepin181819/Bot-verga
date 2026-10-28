@@ -546,7 +546,7 @@ async def on_ready():
                                 await guild.voice_client.disconnect(force=True)
                             except:
                                 pass
-                        vc = await channel.connect(self_deaf=True, self_mute=False, timeout=30.0, reconnect=True)
+                        vc = await channel.connect(self_deaf=False, self_mute=False, timeout=30.0, reconnect=True)
                         voice_clients[guild.id] = vc
                         print(f"[READY VC] Reconectado a {channel.name} en {guild.name}")
                 except Exception as e:
