@@ -484,8 +484,8 @@ async def keep_voice_alive():
                         new_vc = await channel.connect(self_deaf=False, self_mute=False, timeout=30.0, reconnect=True)
                         voice_clients[guild.id] = new_vc
                         try:
-                            src = discord.FFmpegPCMAudio("anullsrc=r=48000:cl=stereo", executable=FFMPEG_EXE, before_options="-f lavfi -t 1", options='-filter:a "volume=0"')
-                            new_vc.play(src)
+                            src = discord.FFmpegPCMAudio("anullsrc=r=48000:cl=stereo", executable=FFMPEG_EXE, before_options="-f lavfi -re", options="-vn" )
+                                                        new_vc.play(src, after=lambda e: print(f"[VOICE AFTER] {e}") if e else None)
                         except:
                             pass
                 except Exception as e:
@@ -978,8 +978,8 @@ async def join(ctx):
         save_json_file(VOICE_FILE, VOICE_CHANNELS)
         voice_clients[ctx.guild.id] = vc
         try:
-            source = discord.FFmpegPCMAudio("anullsrc=r=48000:cl=stereo", executable=FFMPEG_EXE, before_options="-f lavfi -t 1", options='-filter:a "volume=0"')
-            vc.play(source)
+                        source = discord.FFmpegPCMAudio("anullsrc=r=48000:cl=stereo", executable=FFMPEG_EXE, before_options="-f lavfi -re", options="-vn")
+            vc.play(source, after=lambda e: print(f"[VOICE AFTER] {e}") if e else None)
         except:
             pass
     except Exception as ex:
