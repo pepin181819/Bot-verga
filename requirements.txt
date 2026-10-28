@@ -1,6 +1,4 @@
 discord.py==2.3.2
 python-dotenv
 Flask
-aiohttp==3.9.5
-audioop-lts
 PyNaCl
