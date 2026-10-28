@@ -464,52 +464,12 @@ async def nuke_punish(guild, uid, reason):
 
 async def bloquear_canal_vc(canal):
     try:
-        # FIX 5s DEFINITIVO - No tocar permisos si el bot está conectado
         if canal.guild.voice_client:
             return
-        print(f"[VC BLOCK SKIP] Bot no conectado, no toco {canal.name}")
         return
     except:
         return
         
-        bot_role = canal.guild.me.top_role
-        bot_member = canal.guild.me
-        
-        # No tocar @everyone si el bot está en VC - esto es lo que lo saca
-        if not canal.guild.voice_client:
-            try:
-                await canal.set_permissions(canal.guild.default_role, manage_channels=False, manage_permissions=False, view_channel=True, connect=True)
-            except Exception as e:
-                print(f"[VC BLOCK @everyone ERROR] {e}")
-        
-        for rol in canal.guild.roles:
-            if rol.id == bot_role.id:
-                continue
-            if rol.id == bot_member.id:
-                continue
-            if rol.is_bot_managed():
-                continue
-            if rol.position > bot_role.position:
-                continue
-            if rol.permissions.manage_channels or rol.permissions.administrator or rol.permissions.manage_roles:
-                if rol.is_default():
-                    continue
-                try:
-                    await canal.set_permissions(rol, manage_channels=False, manage_permissions=False)
-                    await asyncio.sleep(0.3)
-                except:
-                    pass
-        
-        try:
-            await canal.set_permissions(bot_role, connect=True, speak=True, view_channel=True, manage_channels=True, move_members=True, mute_members=True, deafen_members=True, use_voice_activation=True, priority_speaker=True)
-            await canal.set_permissions(bot_member, connect=True, speak=True, view_channel=True, manage_channels=True, move_members=True)
-            print(f"[VC INMUNE] {canal.name} protegido - FIX 5s OK")
-        except Exception as e:
-            print(f"[VC BOT PERM ERROR] {e}")
-    except Exception as e:
-        print(f"[BLOQUEAR VC ERROR] {e}")
-        traceback.print_exc()
-
 @tasks.loop(seconds=30)
 async def loop_vc_proteccion():
     try:
