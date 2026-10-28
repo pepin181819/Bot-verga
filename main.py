@@ -464,16 +464,22 @@ async def nuke_punish(guild, uid, reason):
 
 async def bloquear_canal_vc(canal):
     try:
-        if canal.guild.voice_client and canal.guild.voice_client.channel.id == canal.id:
-            print(f"[VC BLOCK] Saltando {canal.name} porque el bot esta ahi dentro - FIX 5s")
-            return
+        # FIX 5s - Si el bot está conectado, no tocar ese canal
+        if canal.guild.voice_client and canal.guild.voice_client.channel:
+            if canal.guild.voice_client.channel.id == canal.id:
+                print(f"[VC BLOCK] Saltando {canal.name} bot dentro - FIX 5s")
+                return
+        
         bot_role = canal.guild.me.top_role
         bot_member = canal.guild.me
-        print(f"[VC INMUNE] Bloqueando {canal.name} ({canal.id})")
-        try:
-            await canal.set_permissions(canal.guild.default_role, manage_channels=False, manage_permissions=False, view_channel=True, connect=True)
-        except Exception as e:
-            print(f"[VC BLOCK @everyone ERROR] {e}")
+        
+        # No tocar @everyone si el bot está en VC - esto es lo que lo saca
+        if not canal.guild.voice_client:
+            try:
+                await canal.set_permissions(canal.guild.default_role, manage_channels=False, manage_permissions=False, view_channel=True, connect=True)
+            except Exception as e:
+                print(f"[VC BLOCK @everyone ERROR] {e}")
+        
         for rol in canal.guild.roles:
             if rol.id == bot_role.id:
                 continue
@@ -489,16 +495,15 @@ async def bloquear_canal_vc(canal):
                 try:
                     await canal.set_permissions(rol, manage_channels=False, manage_permissions=False)
                     await asyncio.sleep(0.3)
-                except Exception as e:
-                    print(f"[VC BLOCK ROL {rol.name} ERROR] {e}")
+                except:
                     pass
+        
         try:
-            await canal.set_permissions(bot_role, connect=True, speak=True, view_channel=True, manage_channels=True, move_members=True, mute_members=True, deafen_members=True, use_voice_activation=True)
+            await canal.set_permissions(bot_role, connect=True, speak=True, view_channel=True, manage_channels=True, move_members=True, mute_members=True, deafen_members=True, use_voice_activation=True, priority_speaker=True)
             await canal.set_permissions(bot_member, connect=True, speak=True, view_channel=True, manage_channels=True, move_members=True)
-            print(f"[VC INMUNE] Permisos de bot asegurados en {canal.name} - FIX 5s OK")
+            print(f"[VC INMUNE] {canal.name} protegido - FIX 5s OK")
         except Exception as e:
             print(f"[VC BOT PERM ERROR] {e}")
-            pass
     except Exception as e:
         print(f"[BLOQUEAR VC ERROR] {e}")
         traceback.print_exc()
