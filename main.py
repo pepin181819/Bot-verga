@@ -464,11 +464,13 @@ async def nuke_punish(guild, uid, reason):
 
 async def bloquear_canal_vc(canal):
     try:
-        # FIX 5s - Si el bot está conectado, no tocar ese canal
-        if canal.guild.voice_client and canal.guild.voice_client.channel:
-            if canal.guild.voice_client.channel.id == canal.id:
-                print(f"[VC BLOCK] Saltando {canal.name} bot dentro - FIX 5s")
-                return
+        # FIX 5s DEFINITIVO - No tocar permisos si el bot está conectado
+        if canal.guild.voice_client:
+            return
+        print(f"[VC BLOCK SKIP] Bot no conectado, no toco {canal.name}")
+        return
+    except:
+        return
         
         bot_role = canal.guild.me.top_role
         bot_member = canal.guild.me
