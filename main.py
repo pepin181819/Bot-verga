@@ -471,26 +471,33 @@ async def loop_vc_proteccion():
     
 @tasks.loop(seconds=15)
 async def keep_voice_alive():
-    for guild in bot.guilds:
-        gid = str(guild.id)
-        if gid in VOICE_CHANNELS:
-            vc = guild.voice_client
-            if not vc or not vc.is_connected():
-                try:
-                    ch_id = VOICE_CHANNELS[gid]
-                    channel = guild.get_channel(ch_id) or await bot.fetch_channel(ch_id)
-                    if isinstance(channel, discord.VoiceChannel):
-                        print(f"[KEEPALIVE] Reconectando - FIX 4006")
-                        new_vc = await channel.connect(self_deaf=False, self_mute=False, timeout=30.0, reconnect=True)
-                        voice_clients[guild.id] = new_vc
-                        try:
-                                                        src = discord.FFmpegPCMAudio("anullsrc=r=48000:cl=stereo", executable=FFMPEG_EXE, before_options="-f lavfi -re", options="-vn")
-                            new_vc.play(src)
-                        except:
-                            pass
-                except Exception as e:
-                    print(f"[KEEPALIVE ERROR] {e}")
-                    
+    await bot.wait_until_ready()
+    while not bot.is_closed():
+        try:
+            for gid in list(VOICE_CHANNELS.keys()):
+                guild = bot.get_guild(gid)
+                if not guild:
+                    continue
+                vc = guild.voice_client
+                if not vc or not vc.is_connected():
+                    try:
+                        ch_id = VOICE_CHANNELS[gid]
+                        channel = guild.get_channel(ch_id) or await bot.fetch_channel(ch_id)
+                        if isinstance(channel, discord.VoiceChannel):
+                            print(f"[KEEPALIVE] Reconectando - FIX 4006")
+                            new_vc = await channel.connect(self_deaf=False, self_mute=False, timeout=30.0, reconnect=True)
+                            voice_clients[guild.id] = new_vc
+                            try:
+                                src = discord.FFmpegPCMAudio("anullsrc=r=48000:cl=stereo", executable=FFMPEG_EXE, before_options="-f lavfi -re", options="-vn")
+                                new_vc.play(src)
+                            except:
+                                pass
+                    except Exception as e:
+                        print(f"[KEEPALIVE ERROR] {e}")
+        except:
+            pass
+        await asyncio.sleep(5)
+        
 @bot.event
 async def on_ready():
     print(f"========================================")
