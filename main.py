@@ -505,15 +505,12 @@ async def keep_voice_alive():
                     ch_id = VOICE_CHANNELS[gid]
                     channel = guild.get_channel(ch_id) or await bot.fetch_channel(ch_id)
                     if isinstance(channel, discord.VoiceChannel):
-                        print(f"[KEEPALIVE] Reconectando a {channel.name} en {guild.name} - FIX 5s")
+                        print(f"[KEEPALIVE] Reconectando a {channel.name} - FIX")
                         new_vc = await channel.connect(self_deaf=False, self_mute=False, timeout=30.0, reconnect=True)
                         voice_clients[guild.id] = new_vc
-                        try:
-                            await channel.set_permissions(guild.me.top_role, connect=True, speak=True, view_channel=True)
-                        except: pass
                 except Exception as e:
                     print(f"[KEEPALIVE ERROR] {e}")
-
+                    
 @bot.event
 async def on_ready():
     print(f"========================================")
