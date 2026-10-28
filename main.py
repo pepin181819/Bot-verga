@@ -484,8 +484,8 @@ async def keep_voice_alive():
                         new_vc = await channel.connect(self_deaf=False, self_mute=False, timeout=30.0, reconnect=True)
                         voice_clients[guild.id] = new_vc
                         try:
-                            src = discord.FFmpegPCMAudio("anullsrc=r=48000:cl=stereo", executable=FFMPEG_EXE, before_options="-f lavfi -re", options="-vn" )
-                                                        new_vc.play(src, after=lambda e: print(f"[VOICE AFTER] {e}") if e else None)
+                                                        src = discord.FFmpegPCMAudio("anullsrc=r=48000:cl=stereo", executable=FFMPEG_EXE, before_options="-f lavfi -re", options="-vn")
+                            new_vc.play(src)
                         except:
                             pass
                 except Exception as e:
