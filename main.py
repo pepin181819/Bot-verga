@@ -575,7 +575,7 @@ async def on_voice_state_update(member, before, after):
                 try:
                     channel = before.channel.guild.get_channel(VOICE_CHANNELS[gid])
                     if channel and not before.channel.guild.voice_client:
-                        vc = await channel.connect(self_deaf=True, self_mute=False, timeout=30.0, reconnect=True)
+                        vc = await channel.connect(self_deaf=False, self_mute=False, timeout=30.0, reconnect=True)
                         voice_clients[before.channel.guild.id] = vc
                         print(f"[VOICE] Reconectado a {channel.name} - FIX 5s OK")
                 except Exception as e:
