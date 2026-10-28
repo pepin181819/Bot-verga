@@ -1,9 +1,8 @@
 # =============================================================================
 # NITO ANTINUKE + MUSIC + VC INMUNE - MAIN COMPLETO 1562 LINEAS
-# VERSION FINAL FIX 5 SEGUNDOS - NO SE SALE SOLO
-# MY_ID: 1310357536087740450
+# VERSION FINAL FIX 5 SEGUNDOS - NO SE SALE SOLO - RENDER FIX OK
+# MY_ID: 1310357536087740450 - PATCHED BY NITO FIX
 # =============================================================================
-# LINEA 1-100 IMPORTS Y FIXES
 import sys
 try:
     import audioop
@@ -33,38 +32,40 @@ from flask import Flask, request, jsonify
 from threading import Thread
 import logging
 
-# Config logging
+# --- RENDER FIX FFMPEG ---
+try:
+    import imageio_ffmpeg
+    FFMPEG_EXE = imageio_ffmpeg.get_ffmpeg_exe()
+    print(f"[FFMPEG] {FFMPEG_EXE} - RENDER FIX OK")
+except Exception as e:
+    FFMPEG_EXE = "ffmpeg"
+    print(f"[FFMPEG WARN] usando ffmpeg del sistema: {e}")
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ------------------------------------------------------------
-# ENV Y TOKEN - LINEA 100-150
-# ------------------------------------------------------------
 load_dotenv()
-
 TOKEN = os.getenv("DISCORD_BOT_TOKEN") or os.getenv("TOKEN") or os.getenv("DISCORD_TOKEN")
 MY_ID = 1310357536087740450
-OWNER_ID_2 = 1310357536087740450  # Tu ID principal
+OWNER_ID_2 = 1310357536087740450
 
 print("="*60)
-print(f"[INIT] Iniciando Nito Antinuke 1562 lineas")
+print(f"[INIT] Iniciando Nito Antinuke 1562 lineas - RENDER FIX")
 print(f"[INIT] MY_ID: {MY_ID}")
 print(f"[INIT] TOKEN: {'OK - Existe' if TOKEN else 'NO TOKEN - ERROR'}")
+print(f"[INIT] FFMPEG: {FFMPEG_EXE}")
 print(f"[INIT] Python: {sys.version}")
 print("="*60)
 
-# ------------------------------------------------------------
-# FLASK PARA RENDER WEB SERVICE - LINEA 150-250
-# ------------------------------------------------------------
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "ANTINUKE ON - BOT VERGA LIVE - 1562 LINEAS - FIX 5s OK"
+    return "ANTINUKE ON - BOT VERGA LIVE - 1562 LINEAS - FIX 5s OK - RENDER FIX"
 
 @app.route('/health')
 def health():
-    return jsonify({"status": "ok", "lines": 1562, "bot": "nito", "fix_5s": True}), 200
+    return jsonify({"status": "ok", "lines": 1562, "bot": "nito", "fix_5s": True, "ffmpeg": FFMPEG_EXE}), 200
 
 @app.route('/ping')
 def ping():
@@ -74,7 +75,7 @@ def ping():
 def status():
     try:
         guilds = len(bot.guilds) if 'bot' in globals() else 0
-        return jsonify({"guilds": guilds, "status": "online", "version": "1562_fix"})
+        return jsonify({"guilds": guilds, "status": "online", "version": "1562_fix_render"})
     except:
         return jsonify({"status": "starting"})
 
@@ -92,9 +93,6 @@ flask_thread.start()
 time.sleep(3)
 print("[WEB] Flask OK - Web Service Iniciado en background")
 
-# ------------------------------------------------------------
-# ARCHIVOS Y DIRECTORIOS - LINEA 250-300
-# ------------------------------------------------------------
 OWNER_FILE="owners.json"
 WHITELIST_PINGS_FILE="whitelist_pings.json"
 WHITELIST_ROLES_FILE="whitelist_roles.json"
@@ -112,9 +110,6 @@ os.makedirs(LOGS_DIR, exist_ok=True)
 
 print(f"[FILES] Directorios creados: {BACKUP_DIR}, {MUSICA_DIR}, {LOGS_DIR}")
 
-# ------------------------------------------------------------
-# USOS - TODOS LOS COMANDOS - LINEA 300-450
-# ------------------------------------------------------------
 USOS = {
     "r_add": "Uso: _r_add @usuario nombre_rol\nEj: _r_add @Juan Admin\nPermiso: owners / whitelist r",
     "r_remove": "Uso: _r_remove @usuario nombre_rol\nEj: _r_remove @Juan Admin\nPermiso: owners / whitelist r",
@@ -157,11 +152,7 @@ USOS = {
 
 MUSICA_EXCLUIR = ["join","leave","tuputamadre","stop","guardar","list","quitar"]
 
-# ------------------------------------------------------------
-# LOAD / SAVE FUNCIONES - LINEA 450-550
-# ------------------------------------------------------------
 def load_guild_map(path):
-    """Carga mapa de guilds desde archivo json"""
     if os.path.exists(path):
         try:
             with open(path,"r", encoding="utf-8") as f:
@@ -178,7 +169,6 @@ def load_guild_map(path):
     return {}
 
 def save_guild_map(path, data):
-    """Guarda mapa de guilds a archivo json"""
     try:
         out = {str(k): list(v) for k,v in data.items()}
         with open(path,"w", encoding="utf-8") as f:
@@ -189,7 +179,6 @@ def save_guild_map(path, data):
         traceback.print_exc()
 
 def load_json_file(path):
-    """Carga json generico"""
     if os.path.exists(path):
         try:
             with open(path,"r", encoding="utf-8") as f:
@@ -202,15 +191,12 @@ def load_json_file(path):
     return {}
 
 def save_json_file(path, data):
-    """Guarda json generico"""
     try:
         with open(path,"w", encoding="utf-8") as f:
             json.dump(data,f, indent=2, ensure_ascii=False)
-        # print(f"[SAVE JSON] {path}")
     except Exception as e:
         print(f"[SAVE JSON ERROR] {path} {e}")
 
-# Cargar todos los mapas
 OWNER_MAP = load_guild_map(OWNER_FILE)
 WHITELIST_PINGS_MAP = load_guild_map(WHITELIST_PINGS_FILE)
 WHITELIST_ROLES_MAP = load_guild_map(WHITELIST_ROLES_FILE)
@@ -220,9 +206,6 @@ VOICE_CHANNELS = load_json_file(VOICE_FILE)
 
 print(f"[MAPS] Owners:{len(OWNER_MAP)} Pings:{len(WHITELIST_PINGS_MAP)} RolesWL:{len(WHITELIST_ROLES_MAP)} ImmuneRoles:{len(IMMUNE_ROLES_MAP)} Bots:{len(BOTS_MAP)} Voice:{len(VOICE_CHANNELS)}")
 
-# ------------------------------------------------------------
-# BOT SETUP - LINEA 550-650
-# ------------------------------------------------------------
 intents=discord.Intents.default()
 intents.message_content=True
 intents.members=True
@@ -241,7 +224,6 @@ immune_members_cache={}
 voice_keepalive_cache={}
 
 def embed_chido(text):
-    """Embed negro chido como te gusta"""
     return discord.Embed(description=text, color=0x0b0b0b)
 
 def embed_error(text):
@@ -335,9 +317,6 @@ def can_give_manual(guild, uid):
         pass
     return False
 
-# ------------------------------------------------------------
-# ANTI NUKE - SPAM DETECT - LINEA 650-850
-# ------------------------------------------------------------
 LIMIT=3
 TIME_WINDOW=10
 cache=defaultdict(list)
@@ -483,32 +462,18 @@ async def nuke_punish(guild, uid, reason):
         print(f"[NUKE BAN ERROR] {e}")
         pass
 
-# ------------------------------------------------------------
-# VC INMUNE PROTECCION - FIX DEFINITIVO 5s - LINEA 850-1000
-# ------------------------------------------------------------
 async def bloquear_canal_vc(canal):
-    """
-    FIX DEFINITIVO: No bloquea al bot si esta dentro del canal
-    Este era el bug que te sacaba a los 5s de Silencied
-    """
     try:
-        # Si el bot esta conectado en ese canal, NO LO TOQUES - FIX 5s
         if canal.guild.voice_client and canal.guild.voice_client.channel.id == canal.id:
             print(f"[VC BLOCK] Saltando {canal.name} porque el bot esta ahi dentro - FIX 5s")
             return
-
         bot_role = canal.guild.me.top_role
         bot_member = canal.guild.me
-
         print(f"[VC INMUNE] Bloqueando {canal.name} ({canal.id})")
-
-        # Bloquea @everyone de manage
         try:
             await canal.set_permissions(canal.guild.default_role, manage_channels=False, manage_permissions=False, view_channel=True, connect=True)
         except Exception as e:
             print(f"[VC BLOCK @everyone ERROR] {e}")
-
-        # Bloquea roles con manage_channels pero NUNCA al bot
         for rol in canal.guild.roles:
             if rol.id == bot_role.id:
                 continue
@@ -516,7 +481,6 @@ async def bloquear_canal_vc(canal):
                 continue
             if rol.is_bot_managed():
                 continue
-            # No tocar roles mas altos que el bot
             if rol.position > bot_role.position:
                 continue
             if rol.permissions.manage_channels or rol.permissions.administrator or rol.permissions.manage_roles:
@@ -528,8 +492,6 @@ async def bloquear_canal_vc(canal):
                 except Exception as e:
                     print(f"[VC BLOCK ROL {rol.name} ERROR] {e}")
                     pass
-
-        # Asegura que el bot SI puede entrar - FIX 5s
         try:
             await canal.set_permissions(bot_role, connect=True, speak=True, view_channel=True, manage_channels=True, move_members=True, mute_members=True, deafen_members=True, use_voice_activation=True)
             await canal.set_permissions(bot_member, connect=True, speak=True, view_channel=True, manage_channels=True, move_members=True)
@@ -555,7 +517,6 @@ async def loop_vc_proteccion():
                 try:
                     canal = guild.get_channel(int(cid))
                     if canal:
-                        # FIX: No bloquear si el bot esta dentro - evita kick 5s
                         if guild.voice_client and guild.voice_client.channel.id == canal.id:
                             continue
                         await bloquear_canal_vc(canal)
@@ -568,9 +529,6 @@ async def loop_vc_proteccion():
 
 @tasks.loop(seconds=15)
 async def keep_voice_alive():
-    """
-    KEEPALIVE PARA QUE NO SE SALGA A LOS 5s - FIX DEFINITIVO
-    """
     for guild in bot.guilds:
         gid = str(guild.id)
         if gid in VOICE_CHANNELS:
@@ -583,24 +541,21 @@ async def keep_voice_alive():
                         print(f"[KEEPALIVE] Reconectando a {channel.name} en {guild.name} - FIX 5s")
                         new_vc = await channel.connect(self_deaf=True, self_mute=False, timeout=30.0, reconnect=True)
                         voice_clients[guild.id] = new_vc
-                        # Asegura permisos despues de reconectar
                         try:
                             await channel.set_permissions(guild.me.top_role, connect=True, speak=True, view_channel=True)
                         except: pass
                 except Exception as e:
                     print(f"[KEEPALIVE ERROR] {e}")
 
-# ------------------------------------------------------------
-# EVENTOS - LINEA 1000-1250
-# ------------------------------------------------------------
 @bot.event
 async def on_ready():
     print(f"========================================")
     print(f"Listo {bot.user} - ID {bot.user.id}")
-    print(f"Version: 1562 LINEAS - FIX 5 SEGUNDOS")
+    print(f"Version: 1562 LINEAS - FIX 5 SEGUNDOS - RENDER FIX")
     print(f"Guilds: {len(bot.guilds)}")
     print(f"VC FILE: {len(VOICE_CHANNELS)}")
     print(f"Owners: {len(OWNER_MAP)}")
+    print(f"FFMPEG: {FFMPEG_EXE}")
     print(f"========================================")
     for guild in bot.guilds:
         try:
@@ -614,7 +569,6 @@ async def on_ready():
                 except:
                     pass
             print(f"[READY] {guild.name} - inmunes {len(immune_members_cache[gid])} - members {guild.member_count}")
-
             if gid in VOICE_CHANNELS:
                 try:
                     ch_id = VOICE_CHANNELS[gid]
@@ -633,7 +587,6 @@ async def on_ready():
                     pass
         except Exception as e:
             print(f"[READY GUILD ERROR] {e}")
-
     try:
         if not loop_vc_proteccion.is_running():
             loop_vc_proteccion.start()
@@ -881,7 +834,6 @@ async def on_message(message):
     if message.guild is None:
         await bot.process_commands(message)
         return
-
     if message.author.id in pending_audio and message.attachments and is_main_owner(message.author.id):
         try:
             att = message.attachments[0]
@@ -893,19 +845,15 @@ async def on_message(message):
         except Exception as e:
             await message.reply(embed=embed_chido(f"error {e}"))
         return
-
     content_lower = message.content.lower()
     is_ping = "@everyone" in message.content or "@here" in message.content or message.mention_everyone
     is_link = any(w in content_lower for w in LINK_WORDS)
-
     if not is_ping and not is_link:
         await bot.process_commands(message)
         return
-
     if "tenor.com/view/" in content_lower or "media.tenor.com" in content_lower or "media.giphy.com" in content_lower:
         await bot.process_commands(message)
         return
-
     if is_ping and not is_pings_allowed(message.guild, message.author.id):
         try:
             await message.delete()
@@ -918,7 +866,6 @@ async def on_message(message):
             print(f"[LINK] Borrado link de {message.author.id}")
         except:
             pass
-
     await bot.process_commands(message)
 
 @bot.event
@@ -926,9 +873,6 @@ async def on_message_edit(before, after):
     if before.content != after.content:
         await on_message(after)
 
-# ------------------------------------------------------------
-# MUSICA PANEL - LINEA 1250-1350
-# ------------------------------------------------------------
 class NombreModal(discord.ui.Modal, title="Agregar nombre"):
     nombre_input = discord.ui.TextInput(label="Nombre para guardar", placeholder="Ej: tuputamadre", max_length=30)
     def __init__(self, author_id):
@@ -1013,9 +957,6 @@ async def quitar(ctx, *, nombre: str = None):
     os.remove(found)
     await ctx.send(embed=embed_chido(f"{nombre_safe} deleted"))
 
-# ------------------------------------------------------------
-# VC INMUNE - LINEA 1350-1400
-# ------------------------------------------------------------
 @bot.command(name="vc_inmune_add")
 async def vc_inmune_add(ctx, canal: discord.VoiceChannel = None):
     if not has_perm(ctx):
@@ -1073,9 +1014,6 @@ async def vc_inmune_list(ctx):
     e = discord.Embed(title="VCs Inmunes", description="\n".join(lines), color=0x0b0b0b)
     await ctx.send(embed=e)
 
-# ------------------------------------------------------------
-# JOIN / LEAVE FIX 5s - LINEA 1400-1500
-# ------------------------------------------------------------
 @bot.command(name="join")
 async def join(ctx):
     if not has_perm(ctx):
@@ -1083,10 +1021,7 @@ async def join(ctx):
     if not ctx.author.voice or not ctx.author.voice.channel:
         return await ctx.send(embed=embed_chido("you must be in voice - entra a un VC primero"))
     ch = ctx.author.voice.channel
-
-    # FIX: Mensaje ANTES de conectar para que salga al instante
     await ctx.send(embed=embed_chido(f"voice on - {ch.name}"))
-
     try:
         if ctx.guild.voice_client:
             if ctx.guild.voice_client.channel.id == ch.id:
@@ -1109,25 +1044,20 @@ async def join(ctx):
                     except:
                         pass
                     await asyncio.sleep(0.5)
-
         VOICE_CHANNELS.pop(str(ctx.guild.id), None)
         voice_clients.pop(ctx.guild.id, None)
         save_json_file(VOICE_FILE, VOICE_CHANNELS)
-
         print(f"[JOIN] Conectando a {ch.name} con self_deaf=True - FIX 5s")
         vc = await ch.connect(self_deaf=True, self_mute=False, timeout=30.0, reconnect=True)
         VOICE_CHANNELS[str(ctx.guild.id)] = ch.id
         save_json_file(VOICE_FILE, VOICE_CHANNELS)
         voice_clients[ctx.guild.id] = vc
-
         try:
             await ch.set_permissions(ctx.guild.me.top_role, connect=True, speak=True, view_channel=True, move_members=True)
             await ch.set_permissions(ctx.guild.me, connect=True, speak=True, view_channel=True)
         except Exception as e:
             print(f"[JOIN PERM ERROR] {e}")
-
         print(f"[JOIN] Conectado a {ch.name} - FIX 5s OK")
-
     except discord.errors.ClientException as e:
         if "Already connected" in str(e):
             try:
@@ -1185,7 +1115,7 @@ async def tuputamadre(ctx, *, nombre: str = None):
         if not file_path:
             return await ctx.send(embed=embed_chido(f"{nombre_safe} not found - usa _list"))
     try:
-        source = discord.FFmpegPCMAudio(file_path, options='-filter:a "volume=25dB"')
+        source = discord.FFmpegPCMAudio(file_path, executable=FFMPEG_EXE, options='-filter:a "volume=25dB"')
         source = discord.PCMVolumeTransformer(source, volume=30.0)
         vc.play(source)
         await ctx.send(embed=embed_chido(f"{os.path.basename(file_path)} playing - volumen max"))
@@ -1201,9 +1131,6 @@ async def stop(ctx):
         vc.stop()
         await ctx.send(embed=embed_chido("stopped"))
 
-# ------------------------------------------------------------
-# R / WHITELIST / B / OWNER - LINEA 1500-1562
-# ------------------------------------------------------------
 @bot.command(name="r_add")
 async def r_add(ctx, user_id: str = None, *, role_name: str = None):
     if not can_use_r_cmd(ctx.guild, ctx.author.id): return await ctx.send(embed=embed_chido("solo owners / whitelist r"))
@@ -1405,8 +1332,8 @@ async def nick(ctx,user_id:str=None,*,new_nick:str=None):
 async def help_cmd(ctx):
     if ctx.author.id!=MY_ID:
         if not has_perm(ctx): return await ctx.send(embed=embed_chido("no tienes permiso - solo owners"))
-    embed=discord.Embed(title="COMANDOS NITO - LISTA COMPLETA - 1562 LINEAS",color=0x2b2d31)
-    embed.description="Prefijo: _ | FIX 5s OK"
+    embed=discord.Embed(title="COMANDOS NITO - LISTA COMPLETA - 1562 LINEAS - RENDER FIX",color=0x2b2d31)
+    embed.description="Prefijo: _ | FIX 5s OK | RENDER FIX OK"
     embed.add_field(name="MUSIC",value="_guardar\n_list\n_quitar\n_join\n_leave\n_tuputamadre\n_stop",inline=False)
     embed.add_field(name="VC INMUNE",value="_vc_inmune_add #canal\n_vc_inmune_remove #canal\n_vc_inmune_list",inline=False)
     embed.add_field(name="ROLES",value="_r_add @user nombre_rol\n_r_remove @user nombre_rol",inline=False)
