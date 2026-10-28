@@ -964,25 +964,38 @@ async def vc_inmune_list(ctx):
     e = discord.Embed(title="VCs Inmunes", description="\n".join(lines), color=0x0b0b0b)
     await ctx.send(embed=e)
 
-@bot.command(name="join")
-async def join(ctx):
-    if ctx.author.voice is None:
-        await ctx.send("No estás en un canal de voz we")
-        return
-    channel = ctx.author.voice.channel
+@bot.command(name="_join")
+async def _join(ctx):
     try:
-        if ctx.voice_client is not None:
-            await ctx.voice_client.move_to(channel)
-            vc = ctx.voice_client
+        if not ctx.author.voice or not ctx.author.voice.channel:
+            await ctx.send("Conéctate a un canal de voz primero we")
+            return
+        
+        channel = ctx.author.voice.channel
+        vc = ctx.guild.voice_client
+        
+        if vc and vc.is_connected():
+            await vc.move_to(channel)
         else:
-            vc = await channel.connect(self_deaf=False, self_mute=False, timeout=30.0, reconnect=True)
-        VOICE_CHANNELS[ctx.guild.id] = channel.id
+            vc = await channel.connect(self_deaf=False, self_mute=False, reconnect=True)
+        
+        VOICE_CHANNELS[str(ctx.guild.id)] = channel.id
+        
+        # Silencio infinito para que Discord no lo saque
         try:
-            source = discord.FFmpegPCMAudio("anullsrc=r=48000:cl=stereo", executable=FFMPEG_EXE, before_options="-f lavfi -re", options="-vn")
-            vc.play(source)
-        except:
-            pass
-        await ctx.send(f"Conectado a {channel.name}")
+            if vc.is_playing():
+                vc.stop()
+            src = discord.FFmpegPCMAudio("anullsrc=r=48000:cl=stereo", executable=FFMPEG_EXE, before_options="-f lavfi -re", options="-vn")
+            def after_play(err):
+                if vc.is_connected():
+                    try:
+                        vc.play(discord.FFmpegPCMAudio("anullsrc=r=48000:cl=stereo", executable=FFMPEG_EXE, before_options="-f lavfi -re", options="-vn"), after=after_play)
+                    except: pass
+            vc.play(src, after=after_play)
+        except Exception as e:
+            print(f"[JOIN PLAY ERROR] {e}")
+        
+        await ctx.send(f"Conectado a {channel.name} 👹")
     except Exception as e:
         await ctx.send(f"Error: {e}")
         print(f"[JOIN ERROR] {e}")
