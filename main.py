@@ -8,14 +8,19 @@ from threading import Thread
 load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN") or os.getenv("TOKEN") or os.getenv("DISCORD_TOKEN")
 MY_ID = 1310357536087740450
+if not TOKEN:
+    print("!!! NO TOKEN FOUND - revisa DISCORD_BOT_TOKEN en Render")
 app = Flask(__name__)
 @app.route('/')
-def home(): return "ANTINUKE ULTRA V2 - EVENTO + MIBEBE SEPARADO"
+def home(): return "ANTINUKE ULTRA V2 FIX - COMPLETO"
 @app.route('/health')
 def health(): return jsonify({"status":"ok"}),200
 def run_flask():
-    port=int(os.environ.get("PORT",10000))
-    app.run(host='0.0.0.0',port=port,threaded=True,use_reloader=False)
+    try:
+        port=int(os.environ.get("PORT",10000))
+        app.run(host='0.0.0.0',port=port,threaded=True,use_reloader=False)
+    except Exception as e:
+        print(f"Flask error: {e}")
 Thread(target=run_flask,daemon=True).start()
 OWNER_FILE="owners.json"; MIBEBE_FILE="mibebe.json"; WHITELIST_PINGS_FILE="whitelist_pings.json"; WHITELIST_ROLES_FILE="whitelist_roles.json"; ROLE_IMMUNE_FILE="role_immune.json"; BOTS_FILE="bots_whitelist.json"; VC_IMMUNE_FILE="vc_inmunes.json"; EVENT_FILE="eventos.json"; BACKUP_DIR="backups"
 os.makedirs(BACKUP_DIR, exist_ok=True)
@@ -30,7 +35,7 @@ def save_guild_map(path,data):
     try:
         out={str(k): list(v) for k,v in data.items()}
         with open(path,"w",encoding="utf-8") as f: json.dump(out,f,indent=2,ensure_ascii=False)
-    except: pass
+    except Exception as e: print(f"save error {e}")
 def load_json_file(path):
     if os.path.exists(path):
         try:
@@ -40,7 +45,7 @@ def load_json_file(path):
 def save_json_file(path,data):
     try:
         with open(path,"w",encoding="utf-8") as f: json.dump(data,f,indent=2,ensure_ascii=False)
-    except: pass
+    except Exception as e: print(f"save json error {e}")
 OWNER_MAP=load_guild_map(OWNER_FILE); MIBEBE_MAP=load_guild_map(MIBEBE_FILE); WHITELIST_PINGS_MAP=load_guild_map(WHITELIST_PINGS_FILE); WHITELIST_ROLES_MAP=load_guild_map(WHITELIST_ROLES_FILE); IMMUNE_ROLES_MAP=load_guild_map(ROLE_IMMUNE_FILE); BOTS_MAP=load_guild_map(BOTS_FILE)
 intents=discord.Intents.default(); intents.message_content=True; intents.members=True; intents.guilds=True; intents.presences=True; intents.voice_states=True
 bot=commands.Bot(command_prefix="_",intents=intents,help_command=None,case_insensitive=True)
@@ -67,10 +72,6 @@ def find_role_by_name(guild,name):
         return discord.utils.find(lambda x:name in x.name.lower(),guild.roles)
     except: return None
 def get_guild_set(d,gid): return d.get(str(gid),set())
-def is_main_owner(uid): return uid==MY_ID
-def is_mibebe(gid,uid):
-    if uid==MY_ID: return True
-    return uid in get_guild_set(MIBEBE_MAP,gid)
 def is_owner(gid,uid):
     if uid==MY_ID: return True
     if uid in get_guild_set(MIBEBE_MAP,gid): return True
@@ -82,23 +83,11 @@ def has_perm(ctx):
     if ctx.author.id==ctx.guild.owner_id: return True
     return is_owner(ctx.guild.id,ctx.author.id)
 def can_use_r_cmd(guild,uid):
-    if uid==MY_ID: return True
-    if uid==guild.owner_id: return True
+    if uid==MY_ID or uid==guild.owner_id: return True
     if uid in get_guild_set(MIBEBE_MAP,guild.id): return True
     if uid in get_guild_set(OWNER_MAP,guild.id): return True
     if uid in get_guild_set(WHITELIST_ROLES_MAP,guild.id): return True
     return False
-LIMIT=3; TIME_WINDOW=10; cache=defaultdict(list)
-def is_spam(uid):
-    now=time.time(); cache[uid]=[t for t in cache[uid] if now-t<TIME_WINDOW]; cache[uid].append(now); return len(cache[uid])>LIMIT
-def has_immune_role(guild,uid):
-    try:
-        m=guild.get_member(uid)
-        if m:
-            ids=get_guild_set(IMMUNE_ROLES_MAP,guild.id)
-            if any(r.id in ids for r in m.roles): return True
-        return uid in immune_members_cache.get(str(guild.id),set())
-    except: return False
 def is_safe(guild,uid):
     if uid==MY_ID: return True
     if not guild: return uid==MY_ID
@@ -117,16 +106,30 @@ class CopyIDView(discord.ui.View):
     async def copy_id(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_message(f"```{self.uid}```", ephemeral=True)
 
-class EventoChannelSelect(discord.ui.ChannelSelect):
-    def __init__(self):
-        super().__init__(
-            placeholder="Selecciona el canal del evento...",
-            min_values=1,
-            max_values=1,
-            channel_types=[discord.ChannelType.text, discord.ChannelType.voice, discord.ChannelType.stage_voice, discord.ChannelType.news, discord.ChannelType.forum, discord.ChannelType.news_thread, discord.ChannelType.public_thread]
-        )
+class EventoSelect(discord.ui.Select):
+    def __init__(self, guild):
+        options = []
+        all_ch = []
+        all_ch.extend(guild.text_channels[:10])
+        all_ch.extend(guild.voice_channels[:8])
+        all_ch.extend(guild.stage_channels[:5])
+        for ch in all_ch[:25]:
+            label = ch.name[:90]
+            desc = f"{str(ch.type)} | {ch.id}"[:100]
+            emoji = "📢" if isinstance(ch, discord.TextChannel) and ch.is_news() else "📝" if isinstance(ch, discord.TextChannel) else "🔊" if isinstance(ch, discord.VoiceChannel) else "🎤"
+            options.append(discord.SelectOption(label=label, description=desc, value=str(ch.id), emoji=emoji))
+        if not options:
+            options.append(discord.SelectOption(label="No hay canales", value="0"))
+        super().__init__(placeholder="Selecciona canal del evento (texto, voz, escenario, anuncios)...", min_values=1, max_values=1, options=options)
     async def callback(self, interaction: discord.Interaction):
-        canal = self.values[0]
+        cid = int(self.values[0])
+        if cid == 0:
+            await interaction.response.send_message("No hay canales", ephemeral=True)
+            return
+        canal = interaction.guild.get_channel(cid)
+        if not canal:
+            await interaction.response.send_message("Canal no encontrado", ephemeral=True)
+            return
         data = load_json_file(EVENT_FILE)
         gid = str(interaction.guild.id)
         data.setdefault(gid, {})
@@ -136,15 +139,15 @@ class EventoChannelSelect(discord.ui.ChannelSelect):
         await interaction.response.edit_message(embed=embed, view=None)
 
 class EventoView(discord.ui.View):
-    def __init__(self):
+    def __init__(self, guild):
         super().__init__(timeout=120)
-        self.add_item(EventoChannelSelect())
+        self.add_item(EventoSelect(guild))
     @discord.ui.button(label="Ver Evento Actual", style=discord.ButtonStyle.secondary, emoji="📅")
     async def ver_actual(self, interaction: discord.Interaction, button: discord.ui.Button):
         data = load_json_file(EVENT_FILE)
         gid = str(interaction.guild.id)
         if gid not in data or "canal_evento" not in data[gid]:
-            await interaction.response.send_message(embed=embed_chido("No hay canal de evento configurado"), ephemeral=True)
+            await interaction.response.send_message(embed=embed_chido("No hay canal de evento configurado. Usa _evento"), ephemeral=True)
             return
         info = data[gid]["canal_evento"]
         ch = interaction.guild.get_channel(info["id"])
@@ -178,7 +181,7 @@ async def nuke_punish(guild,uid,reason):
 
 @bot.event
 async def on_ready():
-    print(f"Listo {bot.user} - V2 EVENTO + MIBEBE")
+    print(f"Listo {bot.user} - ULTRA V2 FIX COMPLETO")
     for g in bot.guilds:
         gid=str(g.id); ids=get_guild_set(IMMUNE_ROLES_MAP,g.id); immune_members_cache[gid]=set()
         for m in g.members:
@@ -341,8 +344,8 @@ async def evento(ctx, canal: discord.abc.GuildChannel = None):
         data[gid]["canal_evento"] = {"id": canal.id, "name": canal.name, "type": str(canal.type), "set_by": ctx.author.id, "at": datetime.now(timezone.utc).isoformat()}
         save_json_file(EVENT_FILE, data)
         return await ctx.send(embed=discord.Embed(title="Evento Configurado", description=f"Canal del evento: {canal.mention} - ( {canal.id} )\nTipo: {canal.type}", color=0x00ff88))
-    embed = discord.Embed(title="📅 Configurar Evento", description="Selecciona abajo el canal del evento\nIncluye: Texto, Voz, Escenario, Anuncios, Foro\n\n**Uso rapido:** `_evento #canal`", color=0x2b2d31)
-    view = EventoView()
+    embed = discord.Embed(title="📅 Configurar Evento", description="Selecciona abajo el canal del evento\nIncluye: Texto, Voz, Escenario, Anuncios, Foro\n\n**Uso rapido:** `_evento #canal`\n**Ver:** `_evento_list`", color=0x2b2d31)
+    view = EventoView(ctx.guild)
     await ctx.send(embed=embed, view=view)
 
 @bot.command(name="evento_list", aliases=["eventos"])
@@ -449,7 +452,7 @@ async def whitelist_list(ctx):
 
 @bot.command(name="role_inmune_add")
 async def role_inmune_add(ctx,*,role_name:str=None):
-    if not is_main_owner(ctx.author.id): return
+    if ctx.author.id!=MY_ID: return
     if not role_name: return await ctx.send(embed=embed_chido("Uso: _role_inmune_add nombre_rol\nEjemplo: _role_inmune_add Staff"))
     role=find_role_by_name(ctx.guild,role_name)
     if not role: return await ctx.send(embed=embed_chido(f"role {role_name} not found"))
@@ -487,7 +490,7 @@ async def mibebe(ctx,user_id:str=None):
     MIBEBE_MAP.setdefault(gid,set()).add(uid); save_guild_map(MIBEBE_FILE,MIBEBE_MAP)
     await ctx.send(embed=discord.Embed(title="mibebe activated",description=f"( {uid} ) ahora es mibebe - dueño del server tambien",color=0x00ff88))
 
-@bot.command(name="mibebe_remove", aliases=["mibebe_remove","owner_mibebe_remove"])
+@bot.command(name="mibebe_remove")
 async def mibebe_remove(ctx,user_id:str=None):
     if ctx.author.id!=MY_ID: return
     if not user_id: return await ctx.send(embed=embed_chido("Uso: _mibebe_remove ID"))
@@ -530,10 +533,8 @@ async def owner_list(ctx):
             desc += f"\n{await get_display_tag(ctx.guild, uid)}"
     desc += f"\n\n**⭐ OWNER [{len(owners)}]**\n"
     if owners:
-        tags=[]
         for uid in owners:
-            tags.append(await get_display_tag(ctx.guild, uid))
-        desc += "\n".join(tags)
+            desc += f"\n{await get_display_tag(ctx.guild, uid)}"
     else:
         desc += "vacio"
     await ctx.send(embed=discord.Embed(title="owner list",description=desc,color=0x0b0b0b))
@@ -691,8 +692,8 @@ async def nick(ctx,user_id:str=None,*,new_nick:str=None):
 @bot.command(name="help",aliases=["h","comandos","ayuda"])
 async def help_cmd(ctx):
     if ctx.author.id!=MY_ID and not has_perm(ctx): return await ctx.send(embed=embed_chido("no permiso"))
-    e=discord.Embed(title="COMANDOS ANTINUKE ULTRA V2",color=0x2b2d31)
-    e.description="Prefijo _ | Evento + Mibebe separado"
+    e=discord.Embed(title="COMANDOS ANTINUKE ULTRA V2 FIX",color=0x2b2d31)
+    e.description="Prefijo _ | Evento + Mibebe separado + FIX Render"
     e.add_field(name="EVENTO",value="_evento [#canal]\n_evento_list",inline=False)
     e.add_field(name="VC INMUNE",value="_vc_inmune_add #canal\n_vc_inmune_remove #canal\n_vc_inmune_list",inline=False)
     e.add_field(name="ROLES",value="_r_add @user rol\n_r_remove @user rol",inline=False)
@@ -709,6 +710,11 @@ async def on_command_error(ctx,error):
     traceback.print_exception(type(error),error,error.__traceback__)
 if __name__=="__main__":
     if not TOKEN:
-        print("NO TOKEN")
-        while True: time.sleep(10)
-    bot.run(TOKEN)
+        print("NO TOKEN - pon DISCORD_BOT_TOKEN en Render")
+        while True: time.sleep(30)
+    try:
+        bot.run(TOKEN)
+    except Exception as e:
+        print(f"ERROR AL INICIAR: {e}")
+        traceback.print_exc()
+        time.sleep(10)
