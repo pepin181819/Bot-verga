@@ -10,7 +10,7 @@ TOKEN = os.getenv("DISCORD_BOT_TOKEN") or os.getenv("TOKEN") or os.getenv("DISCO
 MY_ID = 1310357536087740450
 app = Flask(__name__)
 @app.route('/')
-def home(): return "ANTINUKE ON - FINAL LIMPIO SIN PINGS"
+def home(): return "ANTINUKE ULTRA"
 @app.route('/health')
 def health(): return jsonify({"status":"ok"}),200
 def run_flask():
@@ -50,16 +50,12 @@ async def get_display_tag(guild, uid):
     try:
         m = guild.get_member(uid)
         if not m:
-            try:
-                m = await guild.fetch_member(uid)
-            except:
-                m = None
-        if m:
-            return f"{m.display_name} | {m.name} ( {uid} )"
+            try: m = await guild.fetch_member(uid)
+            except: m=None
+        if m: return f"{m.display_name} | {m.name} ( {uid} )"
         u = await bot.fetch_user(uid)
         return f"{u.name} ( {uid} )"
-    except:
-        return f"( {uid} )"
+    except: return f"( {uid} )"
 def extract_id(text):
     try: return int(''.join(filter(str.isdigit,str(text))))
     except: return None
@@ -103,13 +99,34 @@ def is_safe(guild,uid):
     return False
 def is_pings_allowed(g,u): return is_safe(g,u) or u in get_guild_set(WHITELIST_PINGS_MAP,g.id)
 def is_links_allowed(g,u): return is_safe(g,u)
+
+class CopyIDView(discord.ui.View):
+    def __init__(self, uid):
+        super().__init__(timeout=120)
+        self.uid = uid
+    @discord.ui.button(label="Copiar ID", style=discord.ButtonStyle.secondary, emoji="📋")
+    async def copy_id(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message(f"```{self.uid}```", ephemeral=True)
+
 async def auto_backup(guild):
     try:
         path=f"{BACKUP_DIR}/{guild.id}.json"
-        data={"guild_name":guild.name,"guild_id":guild.id,"backup_time":datetime.now(timezone.utc).isoformat()}
+        data={
+            "guild_id": guild.id,
+            "guild_name": guild.name,
+            "owner_id": guild.owner_id,
+            "member_count": guild.member_count,
+            "created_at": guild.created_at.isoformat() if guild.created_at else None,
+            "backup_time": datetime.now(timezone.utc).isoformat(),
+            "roles": [{"id": r.id, "name": r.name} for r in guild.roles],
+            "channels": [{"id": c.id, "name": c.name, "type": str(c.type)} for c in guild.channels],
+        }
         with open(path,"w",encoding="utf-8") as f: json.dump(data,f,indent=4,ensure_ascii=False)
         return path
-    except: return None
+    except:
+        traceback.print_exc()
+        return None
+
 async def nuke_punish(guild,uid,reason):
     if is_safe(guild,uid) or has_immune_role(guild,uid): return
     try: path=await auto_backup(guild)
@@ -124,15 +141,17 @@ async def nuke_punish(guild,uid,reason):
     except: pass
     try: m=guild.get_member(uid) or await guild.fetch_member(uid); await guild.ban(m,reason=f"ANTINUKE {reason}")
     except: pass
+
 @bot.event
 async def on_ready():
-    print(f"Listo {bot.user} - SIN PINGS EN LISTAS")
+    print(f"Listo {bot.user} - ULTRA")
     for g in bot.guilds:
         gid=str(g.id); ids=get_guild_set(IMMUNE_ROLES_MAP,g.id); immune_members_cache[gid]=set()
         for m in g.members:
             try:
                 if any(r.id in ids for r in m.roles): immune_members_cache[gid].add(m.id)
             except: pass
+
 @bot.event
 async def on_member_update(before,after):
     added=[r for r in after.roles if r not in before.roles]
@@ -154,6 +173,7 @@ async def on_member_update(before,after):
             except: pass
             return
     except: pass
+
 @bot.event
 async def on_member_ban(guild,user):
     try:
@@ -169,6 +189,7 @@ async def on_member_ban(guild,user):
             if is_safe(guild,e.user.id): return
             if is_spam(e.user.id): await nuke_punish(guild,e.user.id,"Mass Ban")
     except: pass
+
 @bot.event
 async def on_member_remove(member):
     try:
@@ -184,6 +205,7 @@ async def on_member_remove(member):
             if is_safe(member.guild,e.user.id): return
             if is_spam(e.user.id): await nuke_punish(member.guild,e.user.id,"Mass Kick")
     except: pass
+
 @bot.event
 async def on_guild_channel_delete(channel):
     try:
@@ -212,6 +234,7 @@ async def on_guild_channel_delete(channel):
             if is_safe(channel.guild,e.user.id): return
             if is_spam(e.user.id): await nuke_punish(channel.guild,e.user.id,"Channel Delete")
     except: pass
+
 @bot.event
 async def on_guild_channel_create(channel):
     try:
@@ -220,6 +243,7 @@ async def on_guild_channel_create(channel):
             if is_safe(channel.guild,e.user.id): return
             if is_spam(e.user.id): await nuke_punish(channel.guild,e.user.id,"Channel Create")
     except: pass
+
 @bot.event
 async def on_guild_role_delete(role):
     try:
@@ -228,6 +252,7 @@ async def on_guild_role_delete(role):
             if is_safe(role.guild,e.user.id): return
             if is_spam(e.user.id): await nuke_punish(role.guild,e.user.id,"Role Delete")
     except: pass
+
 @bot.event
 async def on_guild_role_create(role):
     try:
@@ -236,6 +261,7 @@ async def on_guild_role_create(role):
             if is_safe(role.guild,e.user.id): return
             if is_spam(e.user.id): await nuke_punish(role.guild,e.user.id,"Role Create")
     except: pass
+
 @bot.event
 async def on_member_join(member):
     if not member.bot: return
@@ -253,6 +279,7 @@ async def on_member_join(member):
                 await nuke_punish(member.guild,e.user.id,f"Bot Add {member.id}")
                 return
     except: pass
+
 LINK_WORDS=["http://","https://","www.","discord.gg",".com",".gg"]
 @bot.event
 async def on_message(message):
@@ -277,8 +304,7 @@ async def vc_inmune_add(ctx,canal: discord.VoiceChannel=None):
         if ctx.author.voice and ctx.author.voice.channel: canal=ctx.author.voice.channel
         else: return await ctx.send(embed=embed_chido("Uso: _vc_inmune_add #canal\nEjemplo: _vc_inmune_add #General"))
     data=load_json_file(VC_IMMUNE_FILE); gid=str(ctx.guild.id); data.setdefault(gid,{})
-    if str(canal.id) in data[gid]:
-        return await ctx.send(embed=embed_chido(f"( {canal.id} ) ya es VC inmune"))
+    if str(canal.id) in data[gid]: return await ctx.send(embed=embed_chido(f"( {canal.id} ) ya es VC inmune"))
     data[gid][str(canal.id)]={"name":canal.name,"category":canal.category.id if canal.category else None,"bitrate":canal.bitrate,"limit":canal.user_limit}
     save_json_file(VC_IMMUNE_FILE,data); await ctx.send(embed=embed_chido(f"{canal.name} ahora es INMUNE"))
 
@@ -308,8 +334,7 @@ async def r_add(ctx,user_id:str=None,*,role_name:str=None):
     except: return await ctx.send(embed=embed_chido(f"( {uid} ) not found"))
     role=find_role_by_name(ctx.guild,role_name)
     if not role: return await ctx.send(embed=embed_chido(f"role {role_name} not found"))
-    if role in member.roles:
-        return await ctx.send(embed=embed_chido(f"{member.display_name} | {member.name} ya tiene {role.name}"))
+    if role in member.roles: return await ctx.send(embed=embed_chido(f"{member.display_name} | {member.name} ya tiene {role.name}"))
     try: await member.add_roles(role,reason=f"r_add {ctx.author}"); await ctx.send(embed=embed_chido(f"{member.display_name} | {member.name} added as {role.name}"))
     except Exception as ex: await ctx.send(embed=embed_chido(f"error {ex}"))
 
@@ -322,8 +347,7 @@ async def r_remove(ctx,user_id:str=None,*,role_name:str=None):
     except: return
     role=find_role_by_name(ctx.guild,role_name)
     if not role: return await ctx.send(embed=embed_chido("role not found"))
-    if role not in member.roles:
-        return await ctx.send(embed=embed_chido(f"{member.display_name} | {member.name} no tiene {role.name}"))
+    if role not in member.roles: return await ctx.send(embed=embed_chido(f"{member.display_name} | {member.name} no tiene {role.name}"))
     try: await member.remove_roles(role); await ctx.send(embed=embed_chido(f"{member.display_name} | {member.name} removed from {role.name}"))
     except: pass
 
@@ -333,12 +357,10 @@ async def whitelist_add(ctx,tipo:str=None,user_id:str=None):
     if not tipo or not user_id: return await ctx.send(embed=embed_chido("Uso: _whitelist_add r/p ID\n_r = whitelist roles\n_p = whitelist pings\nEjemplo: _whitelist_add r 123456789"))
     uid=extract_id(user_id); gid=str(ctx.guild.id); tipo=tipo.lower()
     if tipo in ["r","roles"]:
-        if uid in get_guild_set(WHITELIST_ROLES_MAP,gid):
-            return await ctx.send(embed=embed_chido(f"( {uid} ) ya esta en whitelist roles"))
+        if uid in get_guild_set(WHITELIST_ROLES_MAP,gid): return await ctx.send(embed=embed_chido(f"( {uid} ) ya esta en whitelist roles"))
         WHITELIST_ROLES_MAP.setdefault(gid,set()).add(uid); save_guild_map(WHITELIST_ROLES_FILE,WHITELIST_ROLES_MAP); await ctx.send(embed=embed_chido(f"( {uid} ) added as whitelist roles"))
     elif tipo in ["p","pings"]:
-        if uid in get_guild_set(WHITELIST_PINGS_MAP,gid):
-            return await ctx.send(embed=embed_chido(f"( {uid} ) ya esta en whitelist pings"))
+        if uid in get_guild_set(WHITELIST_PINGS_MAP,gid): return await ctx.send(embed=embed_chido(f"( {uid} ) ya esta en whitelist pings"))
         WHITELIST_PINGS_MAP.setdefault(gid,set()).add(uid); save_guild_map(WHITELIST_PINGS_FILE,WHITELIST_PINGS_MAP); await ctx.send(embed=embed_chido(f"( {uid} ) added as whitelist pings"))
 
 @bot.command(name="whitelist_remove")
@@ -347,24 +369,20 @@ async def whitelist_remove(ctx,tipo:str=None,user_id:str=None):
     if not tipo or not user_id: return await ctx.send(embed=embed_chido("Uso: _whitelist_remove r/p ID"))
     uid=extract_id(user_id); gid=str(ctx.guild.id)
     if tipo.lower() in ["r","roles"]:
-        if uid not in get_guild_set(WHITELIST_ROLES_MAP,gid):
-            return await ctx.send(embed=embed_chido(f"( {uid} ) no esta en whitelist roles"))
+        if uid not in get_guild_set(WHITELIST_ROLES_MAP,gid): return await ctx.send(embed=embed_chido(f"( {uid} ) no esta en whitelist roles"))
         WHITELIST_ROLES_MAP[gid].remove(uid); save_guild_map(WHITELIST_ROLES_FILE,WHITELIST_ROLES_MAP); await ctx.send(embed=embed_chido(f"( {uid} ) removed from whitelist roles"))
     elif tipo.lower() in ["p","pings"]:
-        if uid not in get_guild_set(WHITELIST_PINGS_MAP,gid):
-            return await ctx.send(embed=embed_chido(f"( {uid} ) no esta en whitelist pings"))
+        if uid not in get_guild_set(WHITELIST_PINGS_MAP,gid): return await ctx.send(embed=embed_chido(f"( {uid} ) no esta en whitelist pings"))
         WHITELIST_PINGS_MAP[gid].remove(uid); save_guild_map(WHITELIST_PINGS_FILE,WHITELIST_PINGS_MAP); await ctx.send(embed=embed_chido(f"( {uid} ) removed from whitelist pings"))
 
 @bot.command(name="whitelist_list")
 async def whitelist_list(ctx):
     if not has_perm(ctx): return
     gid=str(ctx.guild.id); p=get_guild_set(WHITELIST_PINGS_MAP,gid); r=get_guild_set(WHITELIST_ROLES_MAP,gid)
-    p_tags=[]
-    for x in p:
-        p_tags.append(await get_display_tag(ctx.guild, x))
-    r_tags=[]
-    for x in r:
-        r_tags.append(await get_display_tag(ctx.guild, x))
+    p_tags=[]; 
+    for x in p: p_tags.append(await get_display_tag(ctx.guild, x))
+    r_tags=[];
+    for x in r: r_tags.append(await get_display_tag(ctx.guild, x))
     desc=f"**WHITELIST PINGS [{len(p)}]**\n" + "\n".join(p_tags) + f"\n\n**WHITELIST ROLES [{len(r)}]**\n" + "\n".join(r_tags)
     await ctx.send(embed=discord.Embed(title="whitelist list",description=desc or "vacio",color=0x0b0b0b))
 
@@ -375,8 +393,7 @@ async def role_inmune_add(ctx,*,role_name:str=None):
     role=find_role_by_name(ctx.guild,role_name)
     if not role: return await ctx.send(embed=embed_chido(f"role {role_name} not found"))
     gid=str(ctx.guild.id)
-    if role.id in get_guild_set(IMMUNE_ROLES_MAP,gid):
-        return await ctx.send(embed=embed_chido(f"{role.name} ya es inmune"))
+    if role.id in get_guild_set(IMMUNE_ROLES_MAP,gid): return await ctx.send(embed=embed_chido(f"{role.name} ya es inmune"))
     IMMUNE_ROLES_MAP.setdefault(gid,set()).add(role.id); save_guild_map(ROLE_IMMUNE_FILE,IMMUNE_ROLES_MAP); await ctx.send(embed=embed_chido(f"{role.name} added as immune"))
 
 @bot.command(name="role_inmune_remove")
@@ -386,8 +403,7 @@ async def role_inmune_remove(ctx,*,role_name:str=None):
     role=find_role_by_name(ctx.guild,role_name)
     if not role: return await ctx.send(embed=embed_chido("role not found"))
     gid=str(ctx.guild.id)
-    if role.id not in get_guild_set(IMMUNE_ROLES_MAP,gid):
-        return await ctx.send(embed=embed_chido(f"{role.name} no era inmune"))
+    if role.id not in get_guild_set(IMMUNE_ROLES_MAP,gid): return await ctx.send(embed=embed_chido(f"{role.name} no era inmune"))
     IMMUNE_ROLES_MAP[gid].remove(role.id); save_guild_map(ROLE_IMMUNE_FILE,IMMUNE_ROLES_MAP); await ctx.send(embed=embed_chido(f"{role.name} removed from immune"))
 
 @bot.command(name="role_inmune_list")
@@ -402,10 +418,8 @@ async def mibebe(ctx,user_id:str=None):
     if ctx.author.id!=MY_ID: return
     if not user_id: return await ctx.send(embed=embed_chido("Uso: _mibebe ID\nEjemplo: _mibebe 123456789"))
     uid=extract_id(user_id); gid=str(ctx.guild.id)
-    if uid==MY_ID:
-        return await ctx.send(embed=embed_chido(f"( {uid} ) ya es owner principal"))
-    if uid in get_guild_set(OWNER_MAP,gid):
-        return await ctx.send(embed=embed_chido(f"( {uid} ) ya es owner"))
+    if uid==MY_ID: return await ctx.send(embed=embed_chido(f"( {uid} ) ya es owner principal"))
+    if uid in get_guild_set(OWNER_MAP,gid): return await ctx.send(embed=embed_chido(f"( {uid} ) ya es owner"))
     OWNER_MAP.setdefault(gid,set()).add(uid); save_guild_map(OWNER_FILE,OWNER_MAP); await ctx.send(embed=discord.Embed(title="mibebe activated",description=f"( {uid} ) ahora es super owner",color=0x0b0b0b))
 
 @bot.command(name="owner_add")
@@ -413,10 +427,8 @@ async def owner_add(ctx,user_id:str=None):
     if not has_perm(ctx): return
     if not user_id: return await ctx.send(embed=embed_chido("Uso: _owner_add ID\nEjemplo: _owner_add 123456789"))
     uid=extract_id(user_id); gid=str(ctx.guild.id)
-    if uid==MY_ID:
-        return await ctx.send(embed=embed_chido(f"( {uid} ) ya es owner principal, no se puede agregar"))
-    if uid in get_guild_set(OWNER_MAP,gid):
-        return await ctx.send(embed=embed_chido(f"( {uid} ) ya es owner"))
+    if uid==MY_ID: return await ctx.send(embed=embed_chido(f"( {uid} ) ya es owner principal, no se puede agregar"))
+    if uid in get_guild_set(OWNER_MAP,gid): return await ctx.send(embed=embed_chido(f"( {uid} ) ya es owner"))
     OWNER_MAP.setdefault(gid,set()).add(uid); save_guild_map(OWNER_FILE,OWNER_MAP); await ctx.send(embed=embed_chido(f"( {uid} ) added as owner"))
 
 @bot.command(name="owner_remove")
@@ -426,8 +438,7 @@ async def owner_remove(ctx,user_id:str=None):
     uid=extract_id(user_id)
     if uid==MY_ID: return await ctx.send(embed=embed_chido("No puedes quitar al owner principal"))
     gid=str(ctx.guild.id)
-    if uid not in get_guild_set(OWNER_MAP,gid):
-        return await ctx.send(embed=embed_chido(f"( {uid} ) no es owner"))
+    if uid not in get_guild_set(OWNER_MAP,gid): return await ctx.send(embed=embed_chido(f"( {uid} ) no es owner"))
     OWNER_MAP[gid].remove(uid); save_guild_map(OWNER_FILE,OWNER_MAP); await ctx.send(embed=embed_chido(f"( {uid} ) removed from owners"))
 
 @bot.command(name="owner_list")
@@ -435,15 +446,12 @@ async def owner_list(ctx):
     if not has_perm(ctx): return
     gid=str(ctx.guild.id); owners=get_guild_set(OWNER_MAP,gid)
     main_tag = await get_display_tag(ctx.guild, MY_ID)
-    desc = f"**MIBEBE / MAIN OWNER**\n{main_tag}\n\n"
-    desc += f"**OWNERS / SUPER OWNERS [{len(owners)}]**\n"
+    desc = f"**MIBEBE / MAIN OWNER**\n{main_tag}\n\n**OWNERS / SUPER OWNERS [{len(owners)}]**\n"
     if owners:
         tags=[]
-        for uid in owners:
-            tags.append(await get_display_tag(ctx.guild, uid))
+        for uid in owners: tags.append(await get_display_tag(ctx.guild, uid))
         desc += "\n".join(tags)
-    else:
-        desc += "vacio"
+    else: desc += "vacio"
     await ctx.send(embed=discord.Embed(title="owner list",description=desc,color=0x0b0b0b))
 
 @bot.command(name="b_add")
@@ -451,8 +459,7 @@ async def b_add(ctx,user_id:str=None):
     if not has_perm(ctx): return
     if not user_id: return await ctx.send(embed=embed_chido("Uso: _b_add ID\nEjemplo: _b_add 123456789"))
     uid=extract_id(user_id); gid=str(ctx.guild.id)
-    if uid in get_guild_set(BOTS_MAP,gid):
-        return await ctx.send(embed=embed_chido(f"( {uid} ) ya puede meter bots"))
+    if uid in get_guild_set(BOTS_MAP,gid): return await ctx.send(embed=embed_chido(f"( {uid} ) ya puede meter bots"))
     BOTS_MAP.setdefault(gid,set()).add(uid); save_guild_map(BOTS_FILE,BOTS_MAP); await ctx.send(embed=embed_chido(f"( {uid} ) ahora puede meter bots"))
 
 @bot.command(name="b_remove")
@@ -460,20 +467,17 @@ async def b_remove(ctx,user_id:str=None):
     if not has_perm(ctx): return
     if not user_id: return await ctx.send(embed=embed_chido("Uso: _b_remove ID"))
     uid=extract_id(user_id); gid=str(ctx.guild.id)
-    if uid not in get_guild_set(BOTS_MAP,gid):
-        return await ctx.send(embed=embed_chido(f"( {uid} ) no estaba en la lista"))
+    if uid not in get_guild_set(BOTS_MAP,gid): return await ctx.send(embed=embed_chido(f"( {uid} ) no estaba en la lista"))
     BOTS_MAP[gid].remove(uid); save_guild_map(BOTS_FILE,BOTS_MAP); await ctx.send(embed=embed_chido(f"( {uid} ) ya no puede meter bots"))
 
 @bot.command(name="b_list")
 async def b_list(ctx):
     if not has_perm(ctx): return
     gid=str(ctx.guild.id); lista=get_guild_set(BOTS_MAP,gid)
-    if not lista:
-        desc="vacio"
+    if not lista: desc="vacio"
     else:
         tags=[]
-        for uid in lista:
-            tags.append(await get_display_tag(ctx.guild, uid))
+        for uid in lista: tags.append(await get_display_tag(ctx.guild, uid))
         desc="\n".join(tags)
     await ctx.send(embed=discord.Embed(title="b_list - pueden meter bots",description=desc,color=0x0b0b0b))
 
@@ -482,22 +486,79 @@ async def backup(ctx,action:str=None):
     if not has_perm(ctx): return
     if not action: return await ctx.send(embed=embed_chido("Uso: _backup create"))
     if action=="create":
+        await ctx.send(embed=embed_chido("Creando backup..."))
         p=await auto_backup(ctx.guild)
-        if p: await ctx.send(embed=embed_chido("backup creado"),file=discord.File(p))
+        if p and os.path.exists(p):
+            await ctx.send(embed=embed_chido(f"Backup de {ctx.guild.name} creado"),file=discord.File(p))
+            try:
+                await ctx.author.send(embed=discord.Embed(title=f"Backup - {ctx.guild.name}", description=f"ID: {ctx.guild.id}", color=0x0b0b0b), file=discord.File(p))
+            except: pass
+            for oid in get_guild_set(OWNER_MAP,ctx.guild.id):
+                if oid==ctx.author.id: continue
+                try:
+                    u=await bot.fetch_user(oid)
+                    await u.send(embed=discord.Embed(title=f"Backup - {ctx.guild.name}", color=0x0b0b0b), file=discord.File(p))
+                except: pass
+        else:
+            await ctx.send(embed=embed_chido("Error creando backup"))
 
 @bot.command(name="userinfo")
 async def userinfo(ctx,*,user_id:str=None):
     if not has_perm(ctx): return
     try:
-        if user_id: uid=extract_id(user_id); member=ctx.guild.get_member(uid) or await ctx.guild.fetch_member(uid)
-        else: member=ctx.author
-        e=discord.Embed(title=f"USERINFO {member.display_name} | {member.name}",color=0x000000); e.add_field(name="ID",value=str(member.id)); await ctx.send(embed=e)
-    except Exception as ex: await ctx.send(embed=embed_chido(f"error {ex}"))
+        if user_id:
+            uid=extract_id(user_id)
+            try: member=ctx.guild.get_member(uid) or await ctx.guild.fetch_member(uid)
+            except:
+                try: member=await bot.fetch_user(uid)
+                except: return await ctx.send(embed=embed_chido("Usuario no encontrado"))
+        else:
+            member=ctx.author
+        is_member = isinstance(member, discord.Member)
+        embed = discord.Embed(title=f"USERINFO - {member.display_name if is_member else member.name}", color=0x2b2d31)
+        if member.display_avatar:
+            embed.set_thumbnail(url=member.display_avatar.url)
+        created = f"<t:{int(member.created_at.timestamp())}:F> (<t:{int(member.created_at.timestamp())}:R>)"
+        embed.add_field(name="👤 General", value=f"**Tag:** {member.name}\n**Display:** {member.display_name if is_member else member.name}\n**ID:** {member.id}\n**Bot:** {'Si' if member.bot else 'No'}\n**Creado:** {created}", inline=False)
+        if is_member:
+            joined = f"<t:{int(member.joined_at.timestamp())}:F> (<t:{int(member.joined_at.timestamp())}:R>)" if member.joined_at else "Desconocido"
+            status = str(member.status).capitalize() if hasattr(member, 'status') else "Desconocido"
+            roles = [r.mention for r in member.roles if not r.is_default()][::-1]
+            roles_str = ", ".join(roles[:10]) + (f" +{len(roles)-10} mas" if len(roles)>10 else "") if roles else "Ninguno"
+            embed.add_field(name="📅 Servidor", value=f"**Se unio:** {joined}\n**Estado:** {status}\n**Boost:** {'Si' if member.premium_since else 'No'}", inline=False)
+            embed.add_field(name=f"🎭 Roles [{len(member.roles)-1}]", value=roles_str, inline=False)
+            embed.add_field(name="🔑 Permisos clave", value=f"Admin: {'Si' if member.guild_permissions.administrator else 'No'} | Ban: {'Si' if member.guild_permissions.ban_members else 'No'} | Kick: {'Si' if member.guild_permissions.kick_members else 'No'}", inline=False)
+        id_embed = discord.Embed(description=f"```{member.id}```", color=0x0b0b0b)
+        id_embed.set_author(name=f"ID de {member.name}")
+        view = CopyIDView(member.id)
+        await ctx.send(embeds=[embed, id_embed], view=view)
+    except Exception as ex:
+        traceback.print_exc()
+        await ctx.send(embed=embed_chido(f"error {ex}"))
 
 @bot.command(name="serverinfo")
 async def serverinfo(ctx):
     if not has_perm(ctx): return
-    g=ctx.guild; e=discord.Embed(title=g.name,color=0x000000); e.add_field(name="ID",value=str(g.id)); await ctx.send(embed=e)
+    try:
+        g=ctx.guild
+        embed = discord.Embed(title=f"SERVERINFO - {g.name}", color=0x2b2d31, description=g.description or "Sin descripcion")
+        if g.icon:
+            embed.set_thumbnail(url=g.icon.url)
+        if g.banner:
+            embed.set_image(url=g.banner.url)
+        owner_tag = await get_display_tag(g, g.owner_id) if g.owner_id else "Desconocido"
+        embed.add_field(name="👑 General", value=f"**ID:** {g.id}\n**Owner:** {owner_tag}\n**Creado:** <t:{int(g.created_at.timestamp())}:F> (<t:{int(g.created_at.timestamp())}:R>)\n**Boosts:** {g.premium_subscription_count} (Nivel {g.premium_tier})", inline=False)
+        embed.add_field(name="👥 Miembros", value=f"**Total:** {g.member_count}\n**Humanos:** {len([m for m in g.members if not m.bot])}\n**Bots:** {len([m for m in g.members if m.bot])}\n**Online:** {len([m for m in g.members if str(m.status)!='offline'])}", inline=True)
+        embed.add_field(name="📚 Canales", value=f"**Total:** {len(g.channels)}\n**Texto:** {len(g.text_channels)}\n**Voz:** {len(g.voice_channels)}\n**Categorias:** {len(g.categories)}", inline=True)
+        embed.add_field(name="🎭 Roles / Emojis", value=f"**Roles:** {len(g.roles)}\n**Emojis:** {len(g.emojis)}\n**Stickers:** {len(g.stickers)}", inline=True)
+        embed.add_field(name="🔒 Seguridad", value=f"**Verificacion:** {g.verification_level}\n**Filtro:** {g.explicit_content_filter}\n**2FA:** {'Si' if g.mfa_level else 'No'}", inline=False)
+        id_embed = discord.Embed(description=f"```{g.id}```", color=0x0b0b0b)
+        id_embed.set_author(name=f"ID de {g.name}")
+        view = CopyIDView(g.id)
+        await ctx.send(embeds=[embed, id_embed], view=view)
+    except Exception as ex:
+        traceback.print_exc()
+        await ctx.send(embed=embed_chido(f"error {ex}"))
 
 @bot.command(name="ban")
 async def ban_cmd(ctx,user_id:str=None,*,reason:str="No reason"):
@@ -505,40 +566,34 @@ async def ban_cmd(ctx,user_id:str=None,*,reason:str="No reason"):
     if not user_id: return await ctx.send(embed=embed_chido("Uso: _ban ID motivo"))
     try: uid=extract_id(user_id); m=ctx.guild.get_member(uid) or await ctx.guild.fetch_member(uid); await ctx.guild.ban(m,reason=reason); await ctx.send(embed=embed_chido(f"( {uid} ) banned"))
     except Exception as ex: await ctx.send(embed=embed_chido(f"error {ex}"))
-
 @bot.command(name="unban")
 async def unban_cmd(ctx,user_id:str=None):
     if not has_perm(ctx): return
     if not user_id: return await ctx.send(embed=embed_chido("Uso: _unban ID"))
     try: uid=extract_id(user_id); u=await bot.fetch_user(uid); await ctx.guild.unban(u); await ctx.send(embed=embed_chido(f"( {uid} ) unbanned"))
     except Exception as ex: await ctx.send(embed=embed_chido(f"error {ex}"))
-
 @bot.command(name="kick")
 async def kick_cmd(ctx,user_id:str=None,*,reason:str="No reason"):
     if not has_perm(ctx): return
     if not user_id: return await ctx.send(embed=embed_chido("Uso: _kick ID"))
     try: uid=extract_id(user_id); m=ctx.guild.get_member(uid) or await ctx.guild.fetch_member(uid); await m.kick(reason=reason); await ctx.send(embed=embed_chido(f"( {uid} ) kicked"))
     except Exception as ex: await ctx.send(embed=embed_chido(f"error {ex}"))
-
 @bot.command(name="purge")
 async def purge(ctx,amount:int=None):
     if not has_perm(ctx): return
     if not amount: return await ctx.send(embed=embed_chido("Uso: _purge cantidad"))
     try: d=await ctx.channel.purge(limit=amount+1); await ctx.send(embed=embed_chido(f"{len(d)-1} purged"),delete_after=3)
     except Exception as ex: await ctx.send(embed=embed_chido(f"error {ex}"))
-
 @bot.command(name="lock")
 async def lock(ctx):
     if not has_perm(ctx): return
     try: await ctx.channel.set_permissions(ctx.guild.default_role,send_messages=False); await ctx.send(embed=embed_chido("locked"))
     except Exception as ex: await ctx.send(embed=embed_chido(f"error {ex}"))
-
 @bot.command(name="unlock")
 async def unlock(ctx):
     if not has_perm(ctx): return
     try: await ctx.channel.set_permissions(ctx.guild.default_role,send_messages=True); await ctx.send(embed=embed_chido("unlocked"))
     except Exception as ex: await ctx.send(embed=embed_chido(f"error {ex}"))
-
 @bot.command(name="say")
 async def say(ctx,*,text:str=None):
     if not has_perm(ctx): return
@@ -546,35 +601,30 @@ async def say(ctx,*,text:str=None):
     try: await ctx.message.delete()
     except: pass
     await ctx.send(embed=discord.Embed(description=text,color=0x0b0b0b))
-
 @bot.command(name="nick")
 async def nick(ctx,user_id:str=None,*,new_nick:str=None):
     if not has_perm(ctx): return
     if not user_id or not new_nick: return await ctx.send(embed=embed_chido("Uso: _nick @usuario nuevo_nick"))
     try: uid=extract_id(user_id); m=ctx.guild.get_member(uid) or await ctx.guild.fetch_member(uid); await m.edit(nick=new_nick); await ctx.send(embed=embed_chido(f"( {uid} ) nick cambiado a {new_nick}"))
     except Exception as ex: await ctx.send(embed=embed_chido(f"error {ex}"))
-
 @bot.command(name="help",aliases=["h","comandos","ayuda"])
 async def help_cmd(ctx):
     if ctx.author.id!=MY_ID and not has_perm(ctx): return await ctx.send(embed=embed_chido("no permiso"))
-    e=discord.Embed(title="COMANDOS ANTINUKE FINAL",color=0x2b2d31)
-    e.description="Prefijo _ | Sin VC 24/7 | Sin musica | Sin menciones"
+    e=discord.Embed(title="COMANDOS ANTINUKE ULTRA",color=0x2b2d31)
+    e.description="Prefijo _ | Sin VC | Sin musica | Con IDs copiables"
     e.add_field(name="VC INMUNE",value="_vc_inmune_add #canal\n_vc_inmune_remove #canal\n_vc_inmune_list",inline=False)
     e.add_field(name="ROLES",value="_r_add @user rol\n_r_remove @user rol",inline=False)
     e.add_field(name="BOTS",value="_b_add ID\n_b_remove ID\n_b_list",inline=False)
     e.add_field(name="WHITELIST",value="_whitelist_add r/p ID\n_whitelist_remove r/p ID\n_whitelist_list",inline=False)
     e.add_field(name="INMUNES",value="_role_inmune_add rol\n_role_inmune_remove rol\n_role_inmune_list",inline=False)
     e.add_field(name="OWNERS",value="_mibebe ID\n_owner_add ID\n_owner_remove ID\n_owner_list",inline=False)
-    e.add_field(name="MOD",value="_ban ID\n_unban ID\n_kick ID\n_purge num\n_lock\n_unlock\n_say txt\n_nick ID nick",inline=False)
-    e.add_field(name="INFO",value="_userinfo\n_serverinfo\n_backup create",inline=False)
+    e.add_field(name="MOD / INFO",value="_ban ID\n_unban ID\n_kick ID\n_purge num\n_lock\n_unlock\n_say txt\n_nick ID nick\n_userinfo @user\n_serverinfo\n_backup create",inline=False)
     await ctx.send(embed=e)
-
 @bot.event
 async def on_command_error(ctx,error):
     if isinstance(error,commands.MissingRequiredArgument): return
     if isinstance(error,commands.CommandNotFound): return
     traceback.print_exception(type(error),error,error.__traceback__)
-
 if __name__=="__main__":
     if not TOKEN:
         print("NO TOKEN")
