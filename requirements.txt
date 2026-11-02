@@ -1,5 +1,5 @@
-discord.py[voice]==2.3.2
-python-dotenv
+discord.py
 Flask
-PyNaCl
+python-dotenv
 imageio-ffmpeg
+audioop-lts
