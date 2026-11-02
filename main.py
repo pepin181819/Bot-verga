@@ -9,20 +9,19 @@ load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN") or os.getenv("TOKEN") or os.getenv("DISCORD_TOKEN")
 MY_ID = 1310357536087740450
 if not TOKEN:
-    print("!!! NO TOKEN FOUND - revisa DISCORD_BOT_TOKEN en Render")
+    print("!!! NO TOKEN FOUND")
 app = Flask(__name__)
 @app.route('/')
-def home(): return "ANTINUKE ULTRA V2 FIX - COMPLETO"
+def home(): return "ANTINUKE ULTRA V3 - VC INMUNE SELECTOR"
 @app.route('/health')
 def health(): return jsonify({"status":"ok"}),200
 def run_flask():
     try:
         port=int(os.environ.get("PORT",10000))
         app.run(host='0.0.0.0',port=port,threaded=True,use_reloader=False)
-    except Exception as e:
-        print(f"Flask error: {e}")
+    except Exception as e: print(f"Flask error: {e}")
 Thread(target=run_flask,daemon=True).start()
-OWNER_FILE="owners.json"; MIBEBE_FILE="mibebe.json"; WHITELIST_PINGS_FILE="whitelist_pings.json"; WHITELIST_ROLES_FILE="whitelist_roles.json"; ROLE_IMMUNE_FILE="role_immune.json"; BOTS_FILE="bots_whitelist.json"; VC_IMMUNE_FILE="vc_inmunes.json"; EVENT_FILE="eventos.json"; BACKUP_DIR="backups"
+OWNER_FILE="owners.json"; MIBEBE_FILE="mibebe.json"; WHITELIST_PINGS_FILE="whitelist_pings.json"; WHITELIST_ROLES_FILE="whitelist_roles.json"; ROLE_IMMUNE_FILE="role_immune.json"; BOTS_FILE="bots_whitelist.json"; VC_IMMUNE_FILE="vc_inmunes.json"; BACKUP_DIR="backups"
 os.makedirs(BACKUP_DIR, exist_ok=True)
 def load_guild_map(path):
     if os.path.exists(path):
@@ -35,7 +34,7 @@ def save_guild_map(path,data):
     try:
         out={str(k): list(v) for k,v in data.items()}
         with open(path,"w",encoding="utf-8") as f: json.dump(out,f,indent=2,ensure_ascii=False)
-    except Exception as e: print(f"save error {e}")
+    except: pass
 def load_json_file(path):
     if os.path.exists(path):
         try:
@@ -45,7 +44,7 @@ def load_json_file(path):
 def save_json_file(path,data):
     try:
         with open(path,"w",encoding="utf-8") as f: json.dump(data,f,indent=2,ensure_ascii=False)
-    except Exception as e: print(f"save json error {e}")
+    except: pass
 OWNER_MAP=load_guild_map(OWNER_FILE); MIBEBE_MAP=load_guild_map(MIBEBE_FILE); WHITELIST_PINGS_MAP=load_guild_map(WHITELIST_PINGS_FILE); WHITELIST_ROLES_MAP=load_guild_map(WHITELIST_ROLES_FILE); IMMUNE_ROLES_MAP=load_guild_map(ROLE_IMMUNE_FILE); BOTS_MAP=load_guild_map(BOTS_FILE)
 intents=discord.Intents.default(); intents.message_content=True; intents.members=True; intents.guilds=True; intents.presences=True; intents.voice_states=True
 bot=commands.Bot(command_prefix="_",intents=intents,help_command=None,case_insensitive=True)
@@ -88,6 +87,17 @@ def can_use_r_cmd(guild,uid):
     if uid in get_guild_set(OWNER_MAP,guild.id): return True
     if uid in get_guild_set(WHITELIST_ROLES_MAP,guild.id): return True
     return False
+LIMIT=3; TIME_WINDOW=10; cache=defaultdict(list)
+def is_spam(uid):
+    now=time.time(); cache[uid]=[t for t in cache[uid] if now-t<TIME_WINDOW]; cache[uid].append(now); return len(cache[uid])>LIMIT
+def has_immune_role(guild,uid):
+    try:
+        m=guild.get_member(uid)
+        if m:
+            ids=get_guild_set(IMMUNE_ROLES_MAP,guild.id)
+            if any(r.id in ids for r in m.roles): return True
+        return uid in immune_members_cache.get(str(guild.id),set())
+    except: return False
 def is_safe(guild,uid):
     if uid==MY_ID: return True
     if not guild: return uid==MY_ID
@@ -106,53 +116,61 @@ class CopyIDView(discord.ui.View):
     async def copy_id(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_message(f"```{self.uid}```", ephemeral=True)
 
-class EventoSelect(discord.ui.Select):
+class VcInmuneSelect(discord.ui.Select):
     def __init__(self, guild):
         options = []
-        all_ch = []
-        all_ch.extend(guild.text_channels[:10])
-        all_ch.extend(guild.voice_channels[:8])
-        all_ch.extend(guild.stage_channels[:5])
-        for ch in all_ch[:25]:
+        channels = []
+        channels.extend(guild.voice_channels)
+        channels.extend(guild.stage_channels)
+        data = load_json_file(VC_IMMUNE_FILE)
+        gid = str(guild.id)
+        inmunes = data.get(gid, {}) if gid in data else {}
+        for ch in channels[:25]:
+            is_inmune = str(ch.id) in inmunes
             label = ch.name[:90]
-            desc = f"{str(ch.type)} | {ch.id}"[:100]
-            emoji = "📢" if isinstance(ch, discord.TextChannel) and ch.is_news() else "📝" if isinstance(ch, discord.TextChannel) else "🔊" if isinstance(ch, discord.VoiceChannel) else "🎤"
+            desc = f"{'✅ YA INMUNE' if is_inmune else 'Voz' if isinstance(ch, discord.VoiceChannel) else 'Escenario'} | ID {ch.id}"[:100]
+            emoji = "✅" if is_inmune else "🔊" if isinstance(ch, discord.VoiceChannel) else "🎤"
             options.append(discord.SelectOption(label=label, description=desc, value=str(ch.id), emoji=emoji))
         if not options:
-            options.append(discord.SelectOption(label="No hay canales", value="0"))
-        super().__init__(placeholder="Selecciona canal del evento (texto, voz, escenario, anuncios)...", min_values=1, max_values=1, options=options)
+            options.append(discord.SelectOption(label="No hay canales de voz", value="0"))
+        super().__init__(placeholder="Selecciona canales de voz / escenario para hacer inmunes...", min_values=1, max_values=min(len(options), 25), options=options)
     async def callback(self, interaction: discord.Interaction):
-        cid = int(self.values[0])
-        if cid == 0:
-            await interaction.response.send_message("No hay canales", ephemeral=True)
-            return
-        canal = interaction.guild.get_channel(cid)
-        if not canal:
-            await interaction.response.send_message("Canal no encontrado", ephemeral=True)
-            return
-        data = load_json_file(EVENT_FILE)
+        data = load_json_file(VC_IMMUNE_FILE)
         gid = str(interaction.guild.id)
         data.setdefault(gid, {})
-        data[gid]["canal_evento"] = {"id": canal.id, "name": canal.name, "type": str(canal.type), "set_by": interaction.user.id, "at": datetime.now(timezone.utc).isoformat()}
-        save_json_file(EVENT_FILE, data)
-        embed = discord.Embed(title="✅ Evento Configurado", description=f"Canal del evento: {canal.mention} - ( {canal.id} )\nTipo: {canal.type}\nConfigurado por: {interaction.user.display_name}", color=0x00ff88)
+        agregados = []
+        ya_eram = []
+        for val in self.values:
+            cid = int(val)
+            if cid == 0: continue
+            ch = interaction.guild.get_channel(cid)
+            if not ch: continue
+            if str(ch.id) in data[gid]:
+                ya_eram.append(ch.name)
+            else:
+                data[gid][str(ch.id)] = {"name": ch.name, "category": ch.category.id if ch.category else None, "bitrate": getattr(ch, 'bitrate', 64000), "limit": getattr(ch, 'user_limit', 0)}
+                agregados.append(ch.name)
+        save_json_file(VC_IMMUNE_FILE, data)
+        desc = ""
+        if agregados: desc += f"**✅ Agregados como inmunes:**\n" + "\n".join([f"- {n}" for n in agregados]) + "\n\n"
+        if ya_eram: desc += f"**⚠️ Ya eran inmunes:**\n" + "\n".join([f"- {n}" for n in ya_eram])
+        if not desc: desc = "No se agregó nada"
+        embed = discord.Embed(title="VC Inmune Actualizado", description=desc, color=0x00ff88 if agregados else 0x0b0b0b)
         await interaction.response.edit_message(embed=embed, view=None)
 
-class EventoView(discord.ui.View):
+class VcInmuneView(discord.ui.View):
     def __init__(self, guild):
         super().__init__(timeout=120)
-        self.add_item(EventoSelect(guild))
-    @discord.ui.button(label="Ver Evento Actual", style=discord.ButtonStyle.secondary, emoji="📅")
-    async def ver_actual(self, interaction: discord.Interaction, button: discord.ui.Button):
-        data = load_json_file(EVENT_FILE)
+        self.add_item(VcInmuneSelect(guild))
+    @discord.ui.button(label="Ver Inmunes", style=discord.ButtonStyle.secondary, emoji="👀")
+    async def ver_inmunes(self, interaction: discord.Interaction, button: discord.ui.Button):
+        data = load_json_file(VC_IMMUNE_FILE)
         gid = str(interaction.guild.id)
-        if gid not in data or "canal_evento" not in data[gid]:
-            await interaction.response.send_message(embed=embed_chido("No hay canal de evento configurado. Usa _evento"), ephemeral=True)
+        if gid not in data or not data[gid]:
+            await interaction.response.send_message(embed=embed_chido("No hay VCs inmunes"), ephemeral=True)
             return
-        info = data[gid]["canal_evento"]
-        ch = interaction.guild.get_channel(info["id"])
-        mention = ch.mention if ch else f"#{info['name']}"
-        await interaction.response.send_message(embed=discord.Embed(title="Evento Actual", description=f"Canal: {mention} ( {info['id']} )\nTipo: {info['type']}", color=0x0b0b0b), ephemeral=True)
+        lines = [f"{v['name']} - ( {k} )" for k,v in data[gid].items()]
+        await interaction.response.send_message(embed=discord.Embed(title="VCs Inmunes", description="\n".join(lines), color=0x0b0b0b), ephemeral=True)
 
 async def auto_backup(guild):
     try:
@@ -160,9 +178,7 @@ async def auto_backup(guild):
         data={"guild_id": guild.id,"guild_name": guild.name,"owner_id": guild.owner_id,"member_count": guild.member_count,"created_at": guild.created_at.isoformat() if guild.created_at else None,"backup_time": datetime.now(timezone.utc).isoformat(),"roles": [{"id": r.id, "name": r.name} for r in guild.roles],"channels": [{"id": c.id, "name": c.name, "type": str(c.type)} for c in guild.channels],}
         with open(path,"w",encoding="utf-8") as f: json.dump(data,f,indent=4,ensure_ascii=False)
         return path
-    except:
-        traceback.print_exc()
-        return None
+    except: traceback.print_exc(); return None
 
 async def nuke_punish(guild,uid,reason):
     if is_safe(guild,uid) or has_immune_role(guild,uid): return
@@ -181,7 +197,7 @@ async def nuke_punish(guild,uid,reason):
 
 @bot.event
 async def on_ready():
-    print(f"Listo {bot.user} - ULTRA V2 FIX COMPLETO")
+    print(f"Listo {bot.user} - V3 VC INMUNE SELECTOR")
     for g in bot.guilds:
         gid=str(g.id); ids=get_guild_set(IMMUNE_ROLES_MAP,g.id); immune_members_cache[gid]=set()
         for m in g.members:
@@ -334,58 +350,36 @@ async def on_message(message):
         except: pass
     await bot.process_commands(message)
 
-@bot.command(name="evento")
-async def evento(ctx, canal: discord.abc.GuildChannel = None):
+@bot.command(name="vc_inmune_add")
+async def vc_inmune_add(ctx, canal: discord.abc.GuildChannel = None):
     if not has_perm(ctx): return
     if canal:
-        data = load_json_file(EVENT_FILE)
-        gid = str(ctx.guild.id)
-        data.setdefault(gid, {})
-        data[gid]["canal_evento"] = {"id": canal.id, "name": canal.name, "type": str(canal.type), "set_by": ctx.author.id, "at": datetime.now(timezone.utc).isoformat()}
-        save_json_file(EVENT_FILE, data)
-        return await ctx.send(embed=discord.Embed(title="Evento Configurado", description=f"Canal del evento: {canal.mention} - ( {canal.id} )\nTipo: {canal.type}", color=0x00ff88))
-    embed = discord.Embed(title="📅 Configurar Evento", description="Selecciona abajo el canal del evento\nIncluye: Texto, Voz, Escenario, Anuncios, Foro\n\n**Uso rapido:** `_evento #canal`\n**Ver:** `_evento_list`", color=0x2b2d31)
-    view = EventoView(ctx.guild)
+        if not isinstance(canal, (discord.VoiceChannel, discord.StageChannel)):
+            return await ctx.send(embed=embed_chido("Solo canales de voz y escenario pueden ser inmunes"))
+        data=load_json_file(VC_IMMUNE_FILE); gid=str(ctx.guild.id); data.setdefault(gid,{})
+        if str(canal.id) in data[gid]:
+            return await ctx.send(embed=embed_chido(f"( {canal.id} ) ya es VC inmune - {canal.name}"))
+        data[gid][str(canal.id)]={"name":canal.name,"category":canal.category.id if canal.category else None,"bitrate":getattr(canal, 'bitrate', 64000),"limit":getattr(canal, 'user_limit', 0)}
+        save_json_file(VC_IMMUNE_FILE,data)
+        return await ctx.send(embed=discord.Embed(title="✅ VC Inmune Agregado", description=f"{canal.name} ahora es INMUNE - ( {canal.id} )", color=0x00ff88))
+    embed = discord.Embed(title="🔊 VC Inmune - Selector", description="Selecciona abajo uno o varios canales de voz / escenario para hacerlos inmunes\n\n**Incluye:** Voz, Escenario\n**Uso rapido:** `_vc_inmune_add #canal`\n**Ver:** `_vc_inmune_list`", color=0x2b2d31)
+    view = VcInmuneView(ctx.guild)
     await ctx.send(embed=embed, view=view)
 
-@bot.command(name="evento_list", aliases=["eventos"])
-async def evento_list(ctx):
-    if not has_perm(ctx): return
-    data = load_json_file(EVENT_FILE)
-    gid = str(ctx.guild.id)
-    if gid not in data or "canal_evento" not in data[gid]:
-        return await ctx.send(embed=embed_chido("No hay evento configurado. Usa _evento"))
-    info = data[gid]["canal_evento"]
-    ch = ctx.guild.get_channel(info["id"])
-    mention = ch.mention if ch else f"#{info['name']}"
-    by_tag = await get_display_tag(ctx.guild, info["set_by"]) if "set_by" in info else "Desconocido"
-    await ctx.send(embed=discord.Embed(title="Evento Actual", description=f"**Canal:** {mention} ( {info['id']} )\n**Tipo:** {info['type']}\n**Puesto por:** {by_tag}", color=0x0b0b0b))
-
-@bot.command(name="vc_inmune_add")
-async def vc_inmune_add(ctx,canal: discord.VoiceChannel=None):
-    if not has_perm(ctx): return
-    if not canal:
-        if ctx.author.voice and ctx.author.voice.channel: canal=ctx.author.voice.channel
-        else: return await ctx.send(embed=embed_chido("Uso: _vc_inmune_add #canal\nEjemplo: _vc_inmune_add #General"))
-    data=load_json_file(VC_IMMUNE_FILE); gid=str(ctx.guild.id); data.setdefault(gid,{})
-    if str(canal.id) in data[gid]: return await ctx.send(embed=embed_chido(f"( {canal.id} ) ya es VC inmune"))
-    data[gid][str(canal.id)]={"name":canal.name,"category":canal.category.id if canal.category else None,"bitrate":canal.bitrate,"limit":canal.user_limit}
-    save_json_file(VC_IMMUNE_FILE,data); await ctx.send(embed=embed_chido(f"{canal.name} ahora es INMUNE"))
-
 @bot.command(name="vc_inmune_remove")
-async def vc_inmune_remove(ctx,canal: discord.VoiceChannel=None):
+async def vc_inmune_remove(ctx, canal: discord.abc.GuildChannel = None):
     if not has_perm(ctx): return
-    if not canal: return await ctx.send(embed=embed_chido("Uso: _vc_inmune_remove #canal"))
+    if not canal: return await ctx.send(embed=embed_chido("Uso: _vc_inmune_remove #canal\nEjemplo: _vc_inmune_remove #General"))
     data=load_json_file(VC_IMMUNE_FILE); gid=str(ctx.guild.id)
     if gid in data and str(canal.id) in data[gid]:
         data[gid].pop(str(canal.id)); save_json_file(VC_IMMUNE_FILE,data); await ctx.send(embed=embed_chido(f"{canal.name} ya no es inmune"))
-    else: await ctx.send(embed=embed_chido("ese VC no era inmune"))
+    else: await ctx.send(embed=embed_chido(f"{canal.name} no era inmune - {canal.id}"))
 
 @bot.command(name="vc_inmune_list")
 async def vc_inmune_list(ctx):
     if not has_perm(ctx): return
     data=load_json_file(VC_IMMUNE_FILE); gid=str(ctx.guild.id)
-    if gid not in data or not data[gid]: return await ctx.send(embed=embed_chido("no hay VCs inmunes"))
+    if gid not in data or not data[gid]: return await ctx.send(embed=embed_chido("no hay VCs inmunes - usa _vc_inmune_add"))
     lines=[f"{v['name']} - ( {k} )" for k,v in data[gid].items()]
     await ctx.send(embed=discord.Embed(title="VCs Inmunes",description="\n".join(lines),color=0x0b0b0b))
 
@@ -462,7 +456,7 @@ async def role_inmune_add(ctx,*,role_name:str=None):
 
 @bot.command(name="role_inmune_remove")
 async def role_inmune_remove(ctx,*,role_name:str=None):
-    if not is_main_owner(ctx.author.id): return
+    if ctx.author.id!=MY_ID: return
     if not role_name: return await ctx.send(embed=embed_chido("Uso: _role_inmune_remove nombre_rol"))
     role=find_role_by_name(ctx.guild,role_name)
     if not role: return await ctx.send(embed=embed_chido("role not found"))
@@ -692,10 +686,9 @@ async def nick(ctx,user_id:str=None,*,new_nick:str=None):
 @bot.command(name="help",aliases=["h","comandos","ayuda"])
 async def help_cmd(ctx):
     if ctx.author.id!=MY_ID and not has_perm(ctx): return await ctx.send(embed=embed_chido("no permiso"))
-    e=discord.Embed(title="COMANDOS ANTINUKE ULTRA V2 FIX",color=0x2b2d31)
-    e.description="Prefijo _ | Evento + Mibebe separado + FIX Render"
-    e.add_field(name="EVENTO",value="_evento [#canal]\n_evento_list",inline=False)
-    e.add_field(name="VC INMUNE",value="_vc_inmune_add #canal\n_vc_inmune_remove #canal\n_vc_inmune_list",inline=False)
+    e=discord.Embed(title="COMANDOS ANTINUKE ULTRA V3",color=0x2b2d31)
+    e.description="Prefijo _ | VC Inmune con Selector"
+    e.add_field(name="VC INMUNE",value="_vc_inmune_add [#canal]\n_vc_inmune_remove #canal\n_vc_inmune_list",inline=False)
     e.add_field(name="ROLES",value="_r_add @user rol\n_r_remove @user rol",inline=False)
     e.add_field(name="BOTS",value="_b_add ID\n_b_remove ID\n_b_list",inline=False)
     e.add_field(name="WHITELIST",value="_whitelist_add r/p ID\n_whitelist_remove r/p ID\n_whitelist_list",inline=False)
@@ -710,11 +703,11 @@ async def on_command_error(ctx,error):
     traceback.print_exception(type(error),error,error.__traceback__)
 if __name__=="__main__":
     if not TOKEN:
-        print("NO TOKEN - pon DISCORD_BOT_TOKEN en Render")
+        print("NO TOKEN")
         while True: time.sleep(30)
     try:
         bot.run(TOKEN)
     except Exception as e:
-        print(f"ERROR AL INICIAR: {e}")
+        print(f"ERROR: {e}")
         traceback.print_exc()
         time.sleep(10)
