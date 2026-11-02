@@ -1,5 +1,3 @@
-discord.py
-Flask
-python-dotenv
-imageio-ffmpeg
-audioop-lts
+discord.py==2.4.0
+Flask==2.3.3
+python-dotenv==1.0.0
